@@ -1,6 +1,6 @@
 # =====================================================================
 #  Partie privée — jamais publiée
-#  Doc sensible (IP, MAC, règles pare-feu, VPN, infra employeur…)
+#  Doc sensible (IP, MAC, règles pare-feu, VPN…)
 # =====================================================================
 /private/
 

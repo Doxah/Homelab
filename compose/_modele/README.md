@@ -6,11 +6,23 @@
    ```bash
    sops compose/<nom-du-service>/secrets.sops.env
    ```
-   Contenu au format `.env` :
-   ```
-   DB_PASSWORD=...
-   API_TOKEN=...
-   ```
-4. Lancer : `scripts/compose-up.sh <nom-du-service>`.
+4. Donner le dossier de données à l'utilisateur du conteneur : `sudo chown -R 1000:1000 compose/<nom-du-service>/data`.
+5. Lancer : `scripts/compose-up.sh <nom-du-service>`.
 
-Les valeurs non secrètes (ports, chemins, fuseau horaire) restent en clair dans `compose.yaml`.
+## Moindre privilège
+
+Le modèle part du cadre le plus strict. Si le conteneur ne démarre pas, lire `docker logs` et relâcher **une seule** option, en commentant pourquoi :
+
+| Symptôme dans les logs | Option à ajuster |
+|---|---|
+| `Permission denied` / `EACCES` sur `/data` | `chown` du dossier vers l'UID de `user:` |
+| `Read-only file system` sur un chemin | ajouter ce chemin dans `tmpfs:` (ou un volume s'il doit persister) |
+| `Operation not permitted` | l'image a besoin d'une capacité : `cap_add: [NOM]` (chercher laquelle) |
+| L'image refuse de tourner sans root | retirer `user:` et garder `cap_drop` + `cap_add` minimal |
+| Conteneur tué (`OOMKilled`) | augmenter `mem_limit` |
+
+Vérifier le résultat :
+```bash
+docker exec <conteneur> id
+docker inspect -f 'user={{.Config.User}} ro={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} capadd={{.HostConfig.CapAdd}}' <conteneur>
+```

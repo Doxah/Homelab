@@ -1,11 +1,53 @@
 # Modèle de stack : copier le dossier, renommer, adapter.
 # Les secrets viennent de secrets.sops.env (chiffré) via scripts/compose-up.sh.
-# ${VAR:?} fait échouer le lancement si le secret manque, au lieu de démarrer avec une valeur vide.
+#
+# Moindre privilège par défaut : partir de ce cadre strict, puis relâcher UNE option à la fois
+# si le conteneur ne démarre pas, en notant pourquoi dans un commentaire.
 services:
   app:
-    image: ghcr.io/exemple/app:1.2.3   # toujours une version figée, jamais latest
+    image: ghcr.io/exemple/app:1.2.3          # toujours une version figée, jamais latest
+    container_name: app
     restart: unless-stopped
+
+    # --- Identité : jamais root ---
+    user: "1000:1000"                          # ou PUID/PGID pour les images linuxserver.io
+
+    # --- Droits noyau ---
+    cap_drop: [ALL]                            # aucune capacité Linux ; en rajouter une seule à la fois si besoin
+    security_opt:
+      - no-new-privileges:true                 # bloque setuid/sudo dans le conteneur
+
+    # --- Système de fichiers ---
+    read_only: true                            # image en lecture seule
+    tmpfs:
+      - /tmp                                   # dossiers temporaires en RAM
+
+    # --- Ressources ---
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 200
+
+    # --- Réseau ---
+    # Compose crée déjà un réseau dédié par stack (<stack>_default).
+    # Publier un port seulement si un autre hôte doit joindre le service (reverse proxy).
+    ports:
+      - "8080:8080"
+
     environment:
       TZ: Europe/Paris
       DB_PASSWORD: ${DB_PASSWORD:?secret manquant}
-      API_TOKEN: ${API_TOKEN:?secret manquant}
+
+    volumes:
+      - ./data:/data                           # le dossier doit appartenir à l'UID ci-dessus
+
+  # Exemple de base de données : jamais de port publié, réseau interne uniquement
+  # db:
+  #   image: postgres:17.2
+  #   user: "999:999"
+  #   cap_drop: [ALL]
+  #   security_opt: [no-new-privileges:true]
+  #   networks: [interne]
+  #
+  # networks:
+  #   interne:
+  #     internal: true                          # pas d'accès Internet ni depuis l'extérieur

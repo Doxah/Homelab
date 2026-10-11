@@ -21,6 +21,7 @@
 id_rsa*
 id_ed25519*
 *.age
+keys.txt
 !*.sops.*
 
 # Ansible

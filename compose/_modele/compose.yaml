@@ -1,0 +1,11 @@
+# Modèle de stack : copier le dossier, renommer, adapter.
+# Les secrets viennent de secrets.sops.env (chiffré) via scripts/compose-up.sh.
+# ${VAR:?} fait échouer le lancement si le secret manque, au lieu de démarrer avec une valeur vide.
+services:
+  app:
+    image: ghcr.io/exemple/app:1.2.3   # toujours une version figée, jamais latest
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      DB_PASSWORD: ${DB_PASSWORD:?secret manquant}
+      API_TOKEN: ${API_TOKEN:?secret manquant}

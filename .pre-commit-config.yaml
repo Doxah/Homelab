@@ -1,0 +1,27 @@
+# Garde-fous avant chaque commit. Installation : pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # Refuse un fichier *.sops.* qui ne contient pas de valeur chiffrée par SOPS
+      - id: sops-chiffre
+        name: Les fichiers *.sops.* doivent être chiffrés
+        language: pygrep
+        entry: 'ENC\[AES256_GCM'
+        args: [--negate]
+        files: '\.sops\.(env|ya?ml|json)$'
+        exclude: '^\.sops\.yaml$'   # le fichier de config SOPS lui-même n'est pas un secret

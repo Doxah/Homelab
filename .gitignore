@@ -1,0 +1,55 @@
+# =====================================================================
+#  Partie privée — jamais publiée
+#  Doc sensible (IP, MAC, règles pare-feu, VPN, infra employeur…)
+# =====================================================================
+/private/
+
+# =====================================================================
+#  Secrets et fichiers sensibles (pour la suite : Ansible, Terraform, K8s)
+# =====================================================================
+# Variables d'environnement
+.env
+.env.*
+!.env.example
+
+# Clés et certificats
+*.pem
+*.key
+*.p12
+*.pfx
+*.ovpn
+id_rsa*
+id_ed25519*
+*.age
+!*.sops.*
+
+# Ansible
+.vault_pass*
+vault_pass*
+*.retry
+
+# Terraform / OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+.terraform.lock.hcl.bak
+
+# Kubernetes
+kubeconfig*
+*.kubeconfig
+
+# Sauvegardes et exports
+*.bak
+*.sql
+*.dump
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

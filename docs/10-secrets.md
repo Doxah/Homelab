@@ -25,12 +25,23 @@ age-keygen -o "$env:APPDATA\sops\age\keys.txt"
 ```
 
 Debian (Mini PC) :
+age est dans les dépôts Debian, **SOPS ne l'est pas** (`apt install sops` échoue) : il s'installe depuis le paquet `.deb` des releases GitHub.
+
 ```bash
 sudo apt install age
-# SOPS : paquet .deb depuis https://github.com/getsops/sops/releases
+
+# SOPS : dernier .deb publié sur https://github.com/getsops/sops/releases
+SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+curl -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops_${SOPS_VERSION#v}_amd64.deb"
+sudo apt install ./sops_${SOPS_VERSION#v}_amd64.deb && rm sops_*_amd64.deb
+sops --version
+
+# Clé age : avec l'utilisateur qui lance les stacks (pas root)
 mkdir -p ~/.config/sops/age && chmod 700 ~/.config/sops/age
 age-keygen -o ~/.config/sops/age/keys.txt && chmod 600 ~/.config/sops/age/keys.txt
 ```
+
+La clé est cherchée dans le `~/.config` de l'utilisateur courant : si elle a été créée pour `administrateur`, lancer `sops` et `scripts/compose-up.sh` avec ce compte, pas en root.
 
 `age-keygen` affiche la clé publique (`age1...`) : la reporter dans `.sops.yaml`.
 

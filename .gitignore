@@ -54,3 +54,6 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# Données des stacks Docker (volumes bind)
+compose/*/data/

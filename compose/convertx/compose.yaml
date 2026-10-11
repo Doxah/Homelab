@@ -5,11 +5,25 @@ services:
     image: ghcr.io/c4illin/convertx:v0.19.0   # version figée (Renovate la mettra à jour)
     container_name: convertx
     restart: unless-stopped
+
+    user: "1000:1000"                          # non-root ; ./data doit appartenir à 1000:1000
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp                                   # fichiers temporaires de ffmpeg, LibreOffice…
+
+    mem_limit: 2g                              # LibreOffice et ffmpeg peuvent être gourmands
+    cpus: 2.0
+    pids_limit: 512
+
     ports:
-      - "3000:3000"
+      - "3000:3000"                            # joint par le reverse proxy
     environment:
       TZ: Europe/Paris
-      ACCOUNT_REGISTRATION: "false"            # pas de création de compte libre
+      HOME: /tmp                               # LibreOffice écrit son profil dans $HOME
+      ACCOUNT_REGISTRATION: "false"
       JWT_SECRET: ${JWT_SECRET:?secret manquant, lancer via scripts/compose-up.sh}
     volumes:
       - ./data:/app/data                       # données locales, exclues de Git

@@ -81,6 +81,14 @@ pre-commit install
 pre-commit run --all-files
 ```
 
+### Fins de ligne (CRLF)
+Sous Windows, VS Code enregistre par défaut en CRLF. SOPS conserve alors le `\r` dans la valeur déchiffrée (`BIND_IP=127.0.0.1\r` → `invalid IP address`). Le fichier chiffré, lui, ne montre rien : un hook de commit ne peut pas le détecter. Trois protections :
+1. **Éditeur** : [`.editorconfig`](../.editorconfig) + [`.vscode/settings.json`](../.vscode/settings.json) (`files.eol: "\n"`). `sops edit` ouvre un fichier temporaire hors du dépôt : mettre aussi `"files.eol": "\n"` dans les paramètres **utilisateur** de VS Code.
+2. **Git** : [`.gitattributes`](../.gitattributes) force LF (`*.sops.*`, `*.sh`, `*.ps1`) et le hook `mixed-line-ending` corrige les autres fichiers.
+3. **Lancement** : [`scripts/compose-up.sh`](../scripts/compose-up.sh) refuse de démarrer si une valeur déchiffrée contient un `\r` et affiche le nom des variables concernées (jamais leur valeur).
+
+Diagnostic : `sops decrypt <fichier> | cat -A` (un `^M$` en fin de ligne = CRLF). Correction : `sops edit <fichier>`, cliquer sur `CRLF` dans la barre d'état de VS Code, choisir `LF`, enregistrer.
+
 ## Ajouter ou révoquer une clé
 1. Modifier la liste dans `.sops.yaml`.
 2. Rechiffrer chaque fichier : `sops updatekeys <fichier>`.

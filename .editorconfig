@@ -1,0 +1,16 @@
+# Fins de ligne et encodage communs à tous les éditeurs (VS Code : extension EditorConfig.EditorConfig)
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+# deux espaces en fin de ligne = saut de ligne Markdown
+trim_trailing_whitespace = false
+
+[*.{bat,cmd}]
+# cmd.exe exige CRLF
+end_of_line = crlf

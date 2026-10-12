@@ -1,0 +1,5 @@
+{
+  // LF pour tout nouveau fichier : un CR dans un secret SOPS casse la valeur déchiffrée
+  "files.eol": "\n",
+  "files.insertFinalNewline": true
+}

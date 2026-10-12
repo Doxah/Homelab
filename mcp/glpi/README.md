@@ -18,6 +18,7 @@ Serveur **stdio** lancé par Claude Desktop sur le poste Windows, via l'API REST
 4. Préférences de `svc-claude` > **Clé d'accès distant** : générer le jeton utilisateur.
 
 ## 2. Secrets (`secrets.sops.env`, chiffré)
+Le fichier est déjà dans le dépôt, avec les variables en commentaire : `sops mcp/glpi/secrets.sops.env`, décommenter et remplir.
 ```dotenv
 GLPI_URL=https://glpi.doxah-labs.work
 GLPI_APP_TOKEN=...

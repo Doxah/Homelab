@@ -56,6 +56,15 @@ Sous Windows, choisir l'éditeur : `$env:EDITOR = "code --wait"` (ou `notepad`).
 
 `scripts/compose-up.sh` utilise `sops exec-env` : les secrets sont passés en variables d'environnement à `docker compose`, sans fichier `.env` en clair sur le disque.
 
+## Fichiers de secrets pré-remplis
+Une nouvelle stack est livrée avec son `secrets.sops.env` **déjà chiffré**, contenant une ligne commentée par variable attendue :
+```dotenv
+# GLPI_URL=https://glpi.example.org
+# GLPI_APP_TOKEN=<jeton du client API>
+```
+SOPS chiffre aussi les commentaires (le hook pre-commit est satisfait) et seules les clés publiques sont nécessaires pour créer le fichier.
+Pour le compléter : `sops <fichier>`, décommenter chaque ligne, remplacer la valeur. Tant qu'une variable reste commentée, `${VAR:?}` bloque le lancement.
+
 ## Convention de nommage
 - Tout fichier chiffré contient `.sops.` dans son nom : `secrets.sops.env`, `values.sops.yaml`.
 - Une stack = un `secrets.sops.env` à côté de son `compose.yaml`. Voir [`compose/_modele/`](../compose/_modele/).

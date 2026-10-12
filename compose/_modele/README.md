@@ -2,10 +2,12 @@
 
 1. Copier ce dossier : `compose/<nom-du-service>/`.
 2. Adapter `compose.yaml` : chaque secret est une variable `${NOM:?secret manquant}`.
-3. Créer le fichier de secrets chiffré (s'ouvre dans l'éditeur, chiffré à l'enregistrement) :
+3. Remplir le fichier de secrets chiffré (s'ouvre dans l'éditeur, chiffré à l'enregistrement) :
    ```bash
    sops compose/<nom-du-service>/secrets.sops.env
    ```
+   Le fichier est livré **pré-rempli** avec une ligne commentée par variable (`# VAR=<description>`) :
+   décommenter chaque ligne et remplacer la valeur.
 4. Donner le dossier de données à l'utilisateur du conteneur : `sudo chown -R 1000:1000 compose/<nom-du-service>/data`.
 5. Lancer : `scripts/compose-up.sh <nom-du-service>`.
 

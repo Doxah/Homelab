@@ -44,6 +44,7 @@ services:
 
     volumes:
       - ./data/glpi:/var/glpi                  # config/, files/, logs/, marketplace/
+      - ./apache-https.conf:/etc/apache2/conf-enabled/zzz-https-proxy.conf:ro   # HTTPS terminé par le reverse proxy
 
   db:
     image: mariadb:11.4.8                      # LTS ; GLPI 12 exige MariaDB >= 10.11 ou MySQL >= 8.0

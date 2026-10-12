@@ -37,6 +37,10 @@ Comptes créés par défaut : `glpi/glpi` (super-admin), `tech/tech`, `normal/no
 ## Reverse proxy
 npmplus → `http://<IP du Mini PC>:8090`. Restreindre le port 8090 au reverse proxy dans pfSense (IP dans `private/`).
 
+Le HTTPS est terminé par npmplus : `apache-https.conf` force `HTTPS=on` côté PHP, sinon GLPI génère des redirections en `http://`
+(symptôme : après `/ReAuth/Prompt`, alerte du navigateur « informations non sécurisées »).
+Dans Configuration > Générale, l'URL de l'application doit être `https://...`.
+
 ## Sauvegarde
 - Base : `docker exec glpi-db sh -c 'mariadb-dump -uglpi -p"$MARIADB_PASSWORD" --single-transaction glpi' > glpi.sql` (hors Git, `*.sql` ignoré).
 - Fichiers : `data/glpi/` (contient `config/glpicrypt.key`, indispensable pour relire les mots de passe chiffrés en base).

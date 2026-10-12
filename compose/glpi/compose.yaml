@@ -1,0 +1,89 @@
+# GLPI 12 — gestion de parc et helpdesk (https://github.com/glpi-project/docker-images)
+# Secrets : secrets.sops.env (GLPI_DB_PASSWORD). Lancement : scripts/compose-up.sh glpi
+# Données : ./data/glpi (config, fichiers, logs ; UID 33 = www-data) et ./data/db (MariaDB ; UID 999). Jamais dans Git.
+name: glpi
+
+services:
+  glpi:
+    image: glpi/glpi:12.0.0                    # sortie le 2026-10-07 (PHP 8.3 inclus dans l'image)
+    container_name: glpi
+    restart: unless-stopped
+
+    user: "33:33"                              # www-data, utilisateur prévu par l'image
+    cap_drop: [ALL]
+    # apache2 porte une capacité fichier (setcap cap_net_bind_service) pour écouter sur le port 80 :
+    # sans elle dans le bounding set, l'exec d'apache2 échoue en « Operation not permitted ».
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+
+    # EXCEPTION : pas de read_only pour l'instant. supervisord écrit son pid dans /var/www/glpi et
+    # Apache dans /var/run/apache2 + /var/lock/apache2. À durcir une fois la stack validée (tmpfs + pidfile).
+    read_only: false
+
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 300
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks: [interne, default]               # default : port publié + sorties (mails, marketplace, inventaire)
+    ports:
+      - "8090:80"                              # joint par le reverse proxy (npmplus) ; restreindre au proxy dans pfSense
+
+    environment:
+      TZ: Europe/Paris
+      GLPI_DB_HOST: db
+      GLPI_DB_PORT: "3306"
+      GLPI_DB_NAME: glpi
+      GLPI_DB_USER: glpi
+      GLPI_DB_PASSWORD: ${GLPI_DB_PASSWORD:?secret manquant, lancer via scripts/compose-up.sh}
+      GLPI_CRONTAB_ENABLED: "1"                # tâches automatiques GLPI (worker supervisord, toutes les 60 s)
+
+    volumes:
+      - ./data/glpi:/var/glpi                  # config/, files/, logs/, marketplace/
+
+  db:
+    image: mariadb:11.4.8                      # LTS ; GLPI 12 exige MariaDB >= 10.11 ou MySQL >= 8.0
+    container_name: glpi-db
+    restart: unless-stopped
+
+    user: "999:999"                            # mysql ; l'entrypoint MariaDB sait démarrer sans root
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/mysqld:uid=999,gid=999            # socket et pid de mariadbd
+
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 200
+
+    networks: [interne]                        # jamais de port publié
+    environment:
+      TZ: Europe/Paris
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"        # root inutilisé : mot de passe aléatoire affiché une fois dans les logs
+      MARIADB_DATABASE: glpi
+      MARIADB_USER: glpi
+      MARIADB_PASSWORD: ${GLPI_DB_PASSWORD:?secret manquant, lancer via scripts/compose-up.sh}
+      MARIADB_AUTO_UPGRADE: "1"                # mysql_upgrade automatique lors d'un changement de version
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    volumes:
+      - ./data/db:/var/lib/mysql
+
+networks:
+  interne:
+    internal: true                             # pas d'accès Internet, pas joignable depuis l'extérieur

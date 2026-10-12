@@ -9,6 +9,7 @@
 | **Arcane** | Interface de gestion Docker, en cours d'adoption ; encore des problèmes, donc beaucoup de CLI (`docker compose`) |
 | **Portabase** | En test |
 | **ConvertX** | Conversion de fichiers |
+| **GLPI** | Gestion de parc / helpdesk, en test ([stack](../compose/glpi/)) |
 | **DiscoPanel** | Panel des serveurs Minecraft |
 | **2× serveur CS2** | Tests, à supprimer (trop d'espace disque) |
 | **Immich** | À réinstaller |

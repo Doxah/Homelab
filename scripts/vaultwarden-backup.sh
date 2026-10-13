@@ -5,8 +5,8 @@
 # Variables (compose/vaultwarden/secrets.sops.env) :
 #   BACKUP_DIR        dossier local des archives            (défaut : ~/backups/vaultwarden)
 #   BACKUP_KEEP_DAYS  rétention locale en jours             (défaut : 14)
-#   RSYNC_DEST        cible rsync daemon, ex. user@nas::module/vaultwarden  (vide = pas de copie distante)
-#   RSYNC_PASSWORD    mot de passe du module rsync (lu par rsync depuis l'environnement)
+#   RSYNC_DEST        cible rsync, ex. syno-backup:/volume1/<partage>/vaultwarden (rsync via SSH, hôte défini dans ~/.ssh/config)
+#                     vide = pas de copie distante
 set -euo pipefail
 
 stack_dir="$(cd "$(dirname "$0")/.." && pwd)/compose/vaultwarden"

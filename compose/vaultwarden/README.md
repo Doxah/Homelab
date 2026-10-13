@@ -52,9 +52,37 @@ Variables à ajouter dans `secrets.sops.env` :
 ```dotenv
 # BACKUP_DIR=/home/<utilisateur>/backups/vaultwarden
 # BACKUP_KEEP_DAYS=14
-# RSYNC_DEST=<utilisateur>@<nas>::<module>/vaultwarden
-# RSYNC_PASSWORD=<mot de passe du module rsync>
+# RSYNC_DEST=syno-backup:/volume1/<partage>/vaultwarden
 ```
+
+### Copie vers le Synology (rsync via SSH, clé dédiée)
+Sur le Mini PC, avec l'utilisateur qui lance la stack :
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/vw-backup -N "" -C "vaultwarden-backup@mini-pc"   # sans phrase de passe : lancé par cron
+cat >> ~/.ssh/config <<'CFG'
+Host syno-backup
+    HostName <ip-du-nas>
+    Port <port-ssh>
+    User <utilisateur-de-sauvegarde>
+    IdentityFile ~/.ssh/vw-backup
+    IdentitiesOnly yes
+CFG
+chmod 600 ~/.ssh/config
+```
+Sur le NAS (DSM 7.2) :
+1. Panneau de configuration → Terminal & SNMP : SSH activé.
+2. Panneau de configuration → Utilisateur → Avancé : activer le service d'accueil de l'utilisateur.
+3. Services de fichiers → rsync : activer le service rsync ; Privilèges des applications → rsync : autoriser l'utilisateur de sauvegarde. Droits en écriture sur le dossier cible uniquement.
+4. En SSH avec un compte administrateur puis `sudo -i`, installer la clé publique :
+   ```bash
+   H=/var/services/homes/<utilisateur-de-sauvegarde>
+   mkdir -p $H/.ssh
+   echo 'from="<ip-du-mini-pc>",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding <contenu de vw-backup.pub>' >> $H/.ssh/authorized_keys
+   chown -R <utilisateur-de-sauvegarde>:users $H/.ssh
+   chmod 755 $H && chmod 700 $H/.ssh && chmod 600 $H/.ssh/authorized_keys
+   ```
+Test depuis le Mini PC : `rsync -av /etc/hostname syno-backup:/volume1/<partage>/vaultwarden/` (la 1re connexion demande de valider l'empreinte du NAS).
+
 Planification (crontab de l'utilisateur qui lance la stack) :
 ```cron
 15 3 * * * /home/<utilisateur>/homelab/scripts/vaultwarden-backup.sh >> /home/<utilisateur>/backups/vaultwarden.log 2>&1

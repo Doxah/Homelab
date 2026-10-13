@@ -47,5 +47,7 @@ if [[ -n "${RSYNC_DEST:-}" ]]; then
   command -v rsync >/dev/null || { echo "ERREUR : rsync absent de l'hôte" >&2; exit 1; }
   # Le NAS garde sa propre rétention : pas de --delete
   rsync -a --no-perms --no-owner --no-group "$archive" "$RSYNC_DEST/"
-  echo "Copie envoyée vers le NAS"
+  echo "Copie envoyée vers le NAS : $RSYNC_DEST"
+else
+  echo "ATTENTION : RSYNC_DEST non défini dans secrets.sops.env, aucune copie vers le NAS" >&2
 fi

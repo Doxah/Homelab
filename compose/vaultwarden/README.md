@@ -88,12 +88,27 @@ Planification (crontab de l'utilisateur qui lance la stack) :
 15 3 * * * /home/<utilisateur>/homelab/scripts/vaultwarden-backup.sh >> /home/<utilisateur>/backups/vaultwarden.log 2>&1
 ```
 
-### Test de restauration (à faire après la mise en place, puis régulièrement)
+### Test de restauration (depuis la copie du NAS, à refaire régulièrement)
 ```bash
-mkdir -p /tmp/vw-restore && tar xzf ~/backups/vaultwarden/vaultwarden-<date>.tar.gz -C /tmp/vw-restore
-sqlite3 /tmp/vw-restore/db.sqlite3 'PRAGMA integrity_check; SELECT count(*) FROM ciphers;'
+mkdir -p /tmp/vw-restore && cd /tmp/vw-restore
+rsync syno-backup:/volume1/<partage>/vaultwarden/                                    # lister les archives
+rsync syno-backup:/volume1/<partage>/vaultwarden/vaultwarden-<date>.tar.gz .
+tar xzf vaultwarden-<date>.tar.gz && ls -ln
+sqlite3 db.sqlite3 "PRAGMA integrity_check; SELECT count(*) FROM users; SELECT count(*) FROM ciphers;"
+cmp rsa_key.pem ~/Homelab/compose/vaultwarden/data/rsa_key.pem && echo "rsa_key identique"
+
+# Instance jetable sur un autre port, mêmes options de sécurité que la stack
+docker run --rm -d --name vw-restore-test \
+  --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges:true --read-only --tmpfs /tmp \
+  -v /tmp/vw-restore:/data -v ~/Homelab/compose/vaultwarden/tls:/tls:ro \
+  -e DOMAIN=https://<ip-du-mini-pc>:18443 -e SIGNUPS_ALLOWED=false -e ROCKET_PORT=8443 \
+  -e ROCKET_TLS='{certs="/tls/cert.pem",key="/tls/key.pem"}' \
+  -p <ip-du-mini-pc>:18443:8443 vaultwarden/server:1.37.0
 ```
-Test complet : lancer une instance jetable sur ces données (autre port, `SIGNUPS_ALLOWED=false`), s'y connecter et vérifier le nombre d'entrées.
+Se connecter sur `https://<ip-du-mini-pc>:18443` (navigation privée), vérifier le nombre d'entrées, ne rien modifier. Puis :
+```bash
+docker stop vw-restore-test && rm -rf /tmp/vw-restore
+```
 
 ## Bascule depuis le CT
 Pas d'accès externe : Vaultwarden n'est joint qu'en interne, via npmplus. Le CT n'avait ni `DOMAIN`, ni SMTP, ni `config.json`, ni pièces jointes.

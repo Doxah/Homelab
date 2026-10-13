@@ -11,7 +11,7 @@ Jellyfin + Seerr (requêtes) + Radarr / Sonarr / Jackett + Transmission derrièr
 | Hôte | Accès | Remarque |
 |---|---|---|
 | `videos.<DOMAIN>` | LAN | 8096 reste aussi publié (tunnel cloudflared, clients TV en IP) |
-| `seerr.<DOMAIN>` | LAN | |
+| `demande-videos.<DOMAIN>` | LAN | 5055 reste aussi publié (tunnel cloudflared) |
 | `radarr.` / `sonarr.` / `jackett.<DOMAIN>` | postes d'admin (`lan-admin@docker`) | plus de port publié |
 | Transmission | `http://<IP Mini PC>:9091` | pas encore derrière Traefik (l'UI vit dans le réseau de gluetun) |
 

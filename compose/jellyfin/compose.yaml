@@ -2,7 +2,7 @@ name: jellyfin-stack
 # Secrets : secrets.sops.env (NAS_ROOT, NAS_2_ROOT, VPN_*, OPENVPN_*, WIREGUARD_PRIVATE_KEY, SERVER_COUNTRIES)
 #           + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh jellyfin
 # Données : ./config (jamais dans Git).
-# Traefik : videos (Jellyfin), seerr (LAN) ; radarr, sonarr, jackett (postes d'admin). Les applis se joignent
+# Traefik : videos (Jellyfin), demande-videos (Seerr) (LAN) ; radarr, sonarr, jackett (postes d'admin). Les applis se joignent
 # entre elles par le réseau default de la stack (http://jackett:9117, http://gluetun:9091…), plus par l'IP de l'hôte.
 
 #---------------------------------------------------------------------#
@@ -147,10 +147,13 @@ services:
       - TZ=Europe/Paris
     volumes:
       - ./config/jellyseerr:/app/config
+    # 5055 reste publié tant que le tunnel cloudflared pointe dessus (étape proxy.9).
+    ports:
+      - 5055:5055
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
-      traefik.http.routers.seerr.rule: Host(`seerr.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.seerr.rule: Host(`demande-videos.${DOMAIN:?secret manquant}`)
       traefik.http.services.seerr.loadbalancer.server.port: "5055"
     restart: unless-stopped
 

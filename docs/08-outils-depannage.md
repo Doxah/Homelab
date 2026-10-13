@@ -67,6 +67,12 @@ docker compose -f <chemin>/compose.yaml up -d / logs -f / ps
 docker system df ; docker system prune
 ```
 
+## Git (dépôt édité sous Windows, déployé sur le Mini PC)
+| Problème | Outils / commandes |
+|---|---|
+| Script `.sh` non exécutable après un pull (`Permission denied`) | Créé sous Windows (`core.fileMode=false`), il est enregistré en `100644`. Sur le PC : `git update-index --chmod=+x scripts/<script>.sh`, commit, push. **À refaire pour chaque nouveau script `.sh` créé sous Windows**, avant le premier commit. Vérifier : `git ls-files -s scripts/` (`100755` attendu) |
+| `git pull` refusé : « Vos modifications locales… seraient écrasées » après un `chmod +x` | Le bit exécutable compte comme une modification. Sur le Mini PC : `git restore <fichier>`, puis `git pull` (après avoir corrigé le mode côté PC, voir ci-dessus) |
+
 ## Sauvegardes
 | Sujet | Commandes |
 |---|---|

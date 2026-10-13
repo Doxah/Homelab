@@ -22,7 +22,7 @@ services:
     networks: [proxy]                          # seul réseau : ConvertX n'a besoin de joindre aucun autre conteneur
     labels:
       traefik.enable: "true"
-      traefik.http.routers.convertx.rule: Host(`convertx.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.convertx.rule: Host(`convert.${DOMAIN:?secret manquant}`)
       traefik.http.services.convertx.loadbalancer.server.port: "3000"
     environment:
       TZ: Europe/Paris

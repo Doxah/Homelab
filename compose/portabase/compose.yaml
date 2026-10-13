@@ -42,6 +42,10 @@ services:
       traefik.enable: "true"
       traefik.http.routers.portabase.rule: Host(`portabase.${DOMAIN:?secret manquant}`)
       traefik.http.routers.portabase.middlewares: lan-admin@docker   # outil d'admin : postes d'admin uniquement
+      traefik.http.routers.portabase.service: portabase
+      # API des agents : authentifiée par la clé de chaque agent, donc sans lan-admin (les agents ne sont pas des postes d'admin)
+      traefik.http.routers.portabase-agent.rule: Host(`portabase.${DOMAIN:?secret manquant}`) && PathPrefix(`/api/agent/`)
+      traefik.http.routers.portabase-agent.service: portabase
       traefik.http.services.portabase.loadbalancer.server.port: "80"
 
   db:

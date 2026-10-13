@@ -1,0 +1,27 @@
+# Agent Portabase du Mini PC : sauvegarde les bases/volumes listés dans databases.json et les envoie au dashboard.
+# Généré à l'origine par Portabase CLI 26.09.4, adapté aux conventions du dépôt (secrets SOPS, pas de .env en clair).
+# Secrets : secrets.sops.env (EDGE_KEY). Lancement : scripts/compose-up.sh portabase-agent
+#
+# Joint le dashboard par l'URL contenue dans EDGE_KEY (https://portabase.<DOMAIN>, via Traefik) :
+# le router portabase-agent (stack portabase) laisse passer /api/agent/ sans la liste blanche lan-admin,
+# ces routes étant authentifiées par la clé de l'agent.
+#
+# EXCEPTION DOCUMENTÉE AU MOINDRE PRIVILÈGE : accès au socket Docker, nécessaire pour sauvegarder des volumes
+# (type docker-volume) et lancer les outils de dump dans des conteneurs.
+name: portabase-agent
+
+services:
+  agent:
+    image: portabase/agent:latest              # TODO : figer la version (docker inspect)
+    container_name: portabase-agent
+    restart: unless-stopped
+    volumes:
+      - ./databases.json:/config/config.json:ro    # liste des bases/volumes à sauvegarder
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "localhost:host-gateway"               # généré par la CLI : bases écoutant sur l'hôte
+    environment:
+      TZ: Europe/Paris                         # "UTC+2" était faux (en POSIX, UTC+2 = UTC-2) et ignorait l'heure d'hiver
+      EDGE_KEY: ${EDGE_KEY:?secret manquant}
+      LOG_LEVEL: info
+      POLLING: "5"                             # secondes entre deux interrogations du dashboard

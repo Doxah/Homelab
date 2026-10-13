@@ -1,7 +1,8 @@
 # Vaultwarden : migré du CT LXC (T130) vers le Mini PC.
-# Secrets : secrets.sops.env (ADMIN_TOKEN, DOMAIN, BIND_IP). Lancement : scripts/compose-up.sh vaultwarden
+# Secrets : secrets.sops.env (ADMIN_TOKEN) + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh vaultwarden
 # Données : ./data (db.sqlite3 + rsa_key.pem), propriétaire 1000:1000. Jamais dans Git.
-# TLS interne : ./tls/cert.pem + key.pem (auto-signé, générés sur le Mini PC, jamais dans Git).
+# Publié par Traefik (vault.<DOMAIN>) en HTTP sur le réseau proxy : le TLS est terminé par Traefik
+# (l'ancien certificat auto-signé ./tls et le port 8443 publié ne servent plus).
 services:
   vaultwarden:
     image: vaultwarden/server:1.37.0           # même version que le CT au moment de la migration
@@ -20,20 +21,28 @@ services:
     cpus: 1.0
     pids_limit: 200
 
-    # Publié sur l'IP LAN du Mini PC seulement (BIND_IP, dans les secrets) : le reverse proxy s'y connecte en HTTPS.
-    # Une règle pare-feu doit n'autoriser que le reverse proxy vers ce port.
-    ports:
-      - "${BIND_IP:?secret manquant}:8443:8443"
+    networks: [proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.vaultwarden.rule: Host(`vault.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.vaultwarden.service: vaultwarden
+      # /admin réservé aux postes d'admin (en plus de ADMIN_TOKEN)
+      traefik.http.routers.vaultwarden-admin.rule: Host(`vault.${DOMAIN:?secret manquant}`) && PathPrefix(`/admin`)
+      traefik.http.routers.vaultwarden-admin.middlewares: lan-admin@docker
+      traefik.http.routers.vaultwarden-admin.service: vaultwarden
+      traefik.http.services.vaultwarden.loadbalancer.server.port: "8080"
 
     environment:
       TZ: Europe/Paris
       ADMIN_TOKEN: ${ADMIN_TOKEN:?secret manquant}
-      DOMAIN: ${DOMAIN:?secret manquant}          # https://<url>, IDENTIQUE à l'URL actuelle (WebAuthn/passkeys liés au domaine)
+      DOMAIN: https://vault.${DOMAIN:?secret manquant}   # IDENTIQUE à l'URL actuelle (WebAuthn/passkeys liés au domaine)
       SIGNUPS_ALLOWED: "false"                    # n'était pas défini dans le CT (défaut = true)
       DATABASE_MAX_CONNS: "10"
-      ROCKET_PORT: "8443"                         # > 1024 : pas besoin de CAP_NET_BIND_SERVICE
-      ROCKET_TLS: '{certs="/tls/cert.pem",key="/tls/key.pem"}'
+      ROCKET_PORT: "8080"                         # > 1024 : pas besoin de CAP_NET_BIND_SERVICE ; HTTP, TLS par Traefik
 
     volumes:
       - ./data:/data
-      - ./tls:/tls:ro
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

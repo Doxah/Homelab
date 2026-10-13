@@ -14,6 +14,23 @@ dir="$(cd "$(dirname "$0")/.." && pwd)/compose/$stack"
 [[ -f "$dir/compose.yaml" ]] || { echo "Stack introuvable : $dir/compose.yaml" >&2; exit 1; }
 cd "$dir"
 
+# Variables communes à toutes les stacks (DOMAIN, BIND_IP…) : compose/commun.sops.env, exportées avant
+# celles de la stack. Une variable définie dans le secrets.sops.env de la stack est prioritaire.
+commun="$dir/../commun.sops.env"
+if [[ -f "$commun" ]]; then
+  communs="$(sops decrypt "$commun")"                                  # échec de déchiffrement = arrêt (set -e)
+  while IFS= read -r ligne; do
+    [[ "$ligne" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]] || continue     # ignore commentaires et lignes vides
+    valeur="${BASH_REMATCH[2]}"
+    if [[ "$valeur" == *$'\r'* ]]; then
+      echo "ERREUR : fin de ligne CRLF dans compose/commun.sops.env (variable : ${BASH_REMATCH[1]})." >&2
+      exit 1
+    fi
+    export "${BASH_REMATCH[1]}=$valeur"
+  done <<< "$communs"
+  unset communs
+fi
+
 if [[ -f secrets.sops.env ]]; then
   # Garde-fou CRLF : un \r dans une valeur déchiffrée la rend invalide (ex. « invalid IP address: 127.0.0.1 »).
   # Les valeurs restent dans le pipe, seuls les noms des variables fautives sont affichés.

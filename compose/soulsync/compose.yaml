@@ -1,7 +1,8 @@
 # SoulSync + slskd — stack musique « Spotify selfhost » (https://github.com/Nezreka/SoulSync)
 # SoulSync : découverte (Spotify, Deezer, ListenBrainz…), wishlist, téléchargement, tags, rangement de la bibliothèque.
 # slskd    : client Soulseek, source de téléchargement de SoulSync (joint en interne : http://slskd:5030).
-# Secrets : secrets.sops.env (BIND_IP, MUSIC_DIR, SLSKD_*). Lancement : scripts/compose-up.sh soulsync
+# Secrets : secrets.sops.env (MUSIC_DIR, SLSKD_*) + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh soulsync
+# Publiés par Traefik : soulsync.<DOMAIN> et slskd.<DOMAIN> (postes d'admin uniquement). Aucun port publié sur l'hôte.
 # Données locales (./config, ./data, ./storage, ./logs, ./downloads, ./staging, ./slskd) : propriétaire 1000:1000, jamais dans Git.
 services:
   soulsync:
@@ -26,11 +27,13 @@ services:
     cpus: 2.0
     pids_limit: 512
 
-    # Publié sur l'IP LAN du Mini PC seulement : npmplus s'y connecte.
-    # Pas de 8888/8889 : derrière un reverse proxy HTTPS, le callback OAuth Spotify passe par le port principal
-    # (redirect URI = https://<url de SoulSync>/callback, cf. Support/DOCKER-OAUTH-FIX.md de l'upstream).
-    ports:
-      - "${BIND_IP:?secret manquant}:8008:8008"
+    # Derrière Traefik en HTTPS : le callback OAuth Spotify passe par le port principal
+    # (redirect URI = https://soulsync.<DOMAIN>/callback, cf. Support/DOCKER-OAUTH-FIX.md de l'upstream) : pas de 8888/8889.
+    networks: [default, proxy]                 # default : joindre slskd ; proxy : Traefik
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.soulsync.rule: Host(`soulsync.${DOMAIN:?secret manquant}`)
+      traefik.http.services.soulsync.loadbalancer.server.port: "8008"     # websockets (Socket.IO) gérés nativement
 
     environment:
       TZ: Europe/Paris
@@ -68,11 +71,16 @@ services:
     cpus: 1.0
     pids_limit: 256
 
-    ports:
-      - "${BIND_IP:?secret manquant}:5030:5030"    # interface web, via npmplus (optionnel : SoulSync passe par le réseau interne)
-      # Port Soulseek entrant : améliore les résultats (pairs derrière NAT), mais demande une redirection
-      # Livebox → pfSense → Mini PC (double NAT). À activer plus tard si besoin.
-      # - "50300:50300"
+    # Port Soulseek entrant 50300 : améliore les résultats (pairs derrière NAT), mais demande une redirection
+    # Livebox → pfSense → Mini PC (double NAT). À activer plus tard si besoin.
+    # ports:
+    #   - "50300:50300"
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.slskd.rule: Host(`slskd.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.slskd.middlewares: lan-admin@docker              # interface d'admin : postes d'admin uniquement
+      traefik.http.services.slskd.loadbalancer.server.port: "5030"          # websockets (SignalR) gérés nativement
 
     environment:
       TZ: Europe/Paris
@@ -90,3 +98,7 @@ services:
       - ./slskd:/app                           # slskd.yml, base, logs
       - ./downloads:/app/downloads             # même dossier (et même chemin) que côté SoulSync
       - ${MUSIC_DIR:?secret manquant}:/music:ro    # partage en lecture seule de la bibliothèque
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

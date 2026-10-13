@@ -69,7 +69,8 @@ networks:
   proxy:
     external: true
 ```
-- `DOMAIN` doit alors exister dans le `secrets.sops.env` de la stack.
+- `DOMAIN` (et `BIND_IP`) viennent de `compose/commun.sops.env`, chargé par `scripts/compose-up.sh` pour toutes les stacks.
+  Une valeur redéfinie dans le `secrets.sops.env` d'une stack est prioritaire.
 - Websockets : rien à faire (pris en charge nativement, contrairement à la case à cocher de npmplus).
 - Une base de données ne rejoint **jamais** le réseau `proxy`.
 

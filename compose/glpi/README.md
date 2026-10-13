@@ -31,13 +31,13 @@ docker logs -f glpi                    # attendre le logo GLPI (« installation 
 Comptes créés par défaut : `glpi/glpi` (super-admin), `tech/tech`, `normal/normal`, `post-only/postonly`.
 1. Se connecter avec `glpi`, changer son mot de passe (ou créer un admin nominatif et désactiver `glpi`).
 2. Changer le mot de passe ou désactiver `tech`, `normal`, `post-only` (GLPI affiche un avertissement tant que ce n'est pas fait).
-3. Configuration > Générale : renseigner l'URL publique (celle du reverse proxy).
+3. Configuration > Générale : renseigner l'URL publique `https://glpi.<DOMAIN>`.
 4. Activer la 2FA pour les comptes administrateurs.
 
 ## Reverse proxy
-npmplus → `http://<IP du Mini PC>:8090`. Restreindre le port 8090 au reverse proxy dans pfSense (IP dans `private/`).
+Traefik → `glpi.<DOMAIN>` (labels dans `compose.yaml`, réseau `proxy`, port 80 du conteneur non publié).
 
-Le HTTPS est terminé par npmplus : `apache-https.conf` force `HTTPS=on` côté PHP, sinon GLPI génère des redirections en `http://`
+Le HTTPS est terminé par Traefik : `apache-https.conf` force `HTTPS=on` côté PHP, sinon GLPI génère des redirections en `http://`
 (symptôme : après `/ReAuth/Prompt`, alerte du navigateur « informations non sécurisées »).
 Dans Configuration > Générale, l'URL de l'application doit être `https://...`.
 

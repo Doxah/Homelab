@@ -93,3 +93,8 @@ Diagnostic : `sops decrypt <fichier> | cat -A` (un `^M$` en fin de ligne = CRLF)
 1. Modifier la liste dans `.sops.yaml`.
 2. Rechiffrer chaque fichier : `sops updatekeys <fichier>`.
 3. En cas de clé compromise : **changer aussi les secrets eux-mêmes**. Une clé révoquée peut toujours déchiffrer les anciennes versions présentes dans l'historique Git.
+
+## Variables communes
+`compose/commun.sops.env` (chiffré) contient les valeurs partagées par toutes les stacks (`DOMAIN`, `BIND_IP`).
+`scripts/compose-up.sh` les exporte avant de lancer `sops exec-env` sur le `secrets.sops.env` de la stack,
+dont les valeurs restent prioritaires en cas de doublon.

@@ -13,7 +13,6 @@ Le fichier est livré **pré-rempli** avec une ligne commentée par variable : `
 
 | Variable | Rôle |
 |---|---|
-| `BIND_IP` | IP LAN du Mini PC (ports 8008 et 5030 publiés uniquement dessus) |
 | `MUSIC_DIR` | Chemin absolu de la bibliothèque musicale (montage NAS lu par Jellyfin) |
 | `SLSKD_SLSK_USERNAME` / `SLSKD_SLSK_PASSWORD` | Compte du réseau Soulseek (créé à la 1re connexion si le nom est libre) |
 | `SLSKD_USERNAME` / `SLSKD_PASSWORD` | Connexion à l'interface web slskd |
@@ -35,23 +34,22 @@ cd ../.. && scripts/compose-up.sh soulsync pull && scripts/compose-up.sh soulsyn
 docker logs -f soulsync      # les « WARNING: ... not writable » de l'audit gosu sont attendus (voir compose.yaml)
 ```
 
-## Configuration de SoulSync (`https://<url>` via npmplus, ou `http://<BIND_IP>:8008`)
+## Configuration de SoulSync (`https://soulsync.<DOMAIN>` via Traefik)
 1. **Settings → Connections → Soulseek** : URL `http://slskd:5030` (réseau interne de la stack), clé = `SLSKD_API_KEY`.
 2. **Settings → Downloads** : dossier de téléchargement `/app/downloads`, **Transfer** `/app/Transfer`.
 3. **Settings → Connections → Jellyfin** : URL de Jellyfin par l'IP du Mini PC (pas `localhost` : ce serait le conteneur), clé API Jellyfin.
    Dans Jellyfin, une bibliothèque *Musique* pointant sur le même dossier que `MUSIC_DIR`.
 4. **Spotify (optionnel, meilleure découverte)** : créer une appli sur [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard),
-   redirect URI **`https://<url de SoulSync>/callback`** (HTTPS via npmplus : le callback passe par le port 8008, pas besoin de 8888),
+   redirect URI **`https://soulsync.<DOMAIN>/callback`** (HTTPS via Traefik : le callback passe par le port principal, pas besoin de 8888),
    même URI dans **Settings → Connections → Spotify** avec Client ID / Secret.
-   Sans npmplus, Spotify n'accepte que `http://127.0.0.1:8888/callback` → il faudrait publier 8888 et un tunnel SSH.
 
-## npmplus
-| Hôte | Destination | Options |
-|---|---|---|
-| SoulSync | `http://<IP Mini PC>:8008` | **Websockets Support** activé (mises à jour en direct via Socket.IO) |
-| slskd (optionnel) | `http://<IP Mini PC>:5030` | Websockets Support activé (SignalR) |
+## Reverse proxy (Traefik)
+| Hôte | Accès |
+|---|---|
+| `soulsync.<DOMAIN>` | LAN |
+| `slskd.<DOMAIN>` | postes d'admin seulement (`lan-admin@docker`) ; facultatif, SoulSync passe par le réseau interne |
 
-Pare-feu : n'autoriser que npmplus vers 8008/5030 sur le Mini PC.
+Labels dans `compose.yaml`, aucun port publié. Les websockets (Socket.IO, SignalR) passent sans réglage.
 
 ## Moindre privilège
 Les deux conteneurs tournent en `1000:1000`, `cap_drop: ALL`, `no-new-privileges`, système de fichiers en lecture seule.

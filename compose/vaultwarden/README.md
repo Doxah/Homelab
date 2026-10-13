@@ -133,3 +133,15 @@ Pas d'accès externe : Vaultwarden n'est joint qu'en interne, via npmplus. Le CT
 6. **Garder le CT arrêté 1 à 2 semaines** sans le démarrer au boot (`pct set <id> -onboot 0` sur le T130), puis le supprimer.
 
 Retour arrière : redémarrer le CT et remettre l'ancienne destination dans npmplus. Tout ce qui a été modifié sur le Mini PC entre-temps est perdu.
+
+## Derrière Traefik (2026-10)
+Vaultwarden est publié par Traefik sur `vault.<DOMAIN>`, en HTTP sur le réseau `proxy` : Traefik termine le TLS avec le
+certificat wildcard Let's Encrypt. Plus de port 8443 publié, plus de `ROCKET_TLS` ni de certificat auto-signé.
+`/admin` a son propre router, limité aux postes d'admin (`lan-admin@docker`) en plus de `ADMIN_TOKEN`.
+
+- `DOMAIN` vient de `compose/commun.sops.env` (domaine racine) ; le compose en déduit `https://vault.<DOMAIN>`.
+  **Ne pas** redéfinir `DOMAIN` dans `secrets.sops.env` : la valeur de la stack est prioritaire et casserait la règle Traefik.
+- L'URL doit rester identique à l'ancienne (WebAuthn/passkeys liés au domaine).
+- Bascule : `scripts/compose-up.sh vaultwarden`, puis déplacer `vault` vers le Mini PC dans les host overrides pfSense,
+  puis retirer l'hôte de npmplus. Le dossier `tls/` peut être supprimé une fois validé.
+- Le test de restauration plus haut utilise encore le TLS auto-signé : il reste valable tel quel (instance jetable).

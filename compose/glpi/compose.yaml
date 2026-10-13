@@ -1,5 +1,6 @@
 # GLPI 12 — gestion de parc et helpdesk (https://github.com/glpi-project/docker-images)
-# Secrets : secrets.sops.env (GLPI_DB_PASSWORD). Lancement : scripts/compose-up.sh glpi
+# Secrets : secrets.sops.env (GLPI_DB_PASSWORD) + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh glpi
+# Publié par Traefik (glpi.<DOMAIN>) via le réseau proxy : aucun port publié sur l'hôte.
 # Données : ./data/glpi (config, fichiers, logs ; UID 33 = www-data) et ./data/db (MariaDB ; UID 999). Jamais dans Git.
 name: glpi
 
@@ -29,9 +30,11 @@ services:
       db:
         condition: service_healthy
 
-    networks: [interne, default]               # default : port publié + sorties (mails, marketplace, inventaire)
-    ports:
-      - "8090:80"                              # joint par le reverse proxy (npmplus) ; restreindre au proxy dans pfSense
+    networks: [interne, proxy]                 # proxy : Traefik + sorties (mails, marketplace, inventaire)
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.glpi.rule: Host(`glpi.${DOMAIN:?secret manquant}`)
+      traefik.http.services.glpi.loadbalancer.server.port: "80"
 
     environment:
       TZ: Europe/Paris
@@ -88,3 +91,5 @@ services:
 networks:
   interne:
     internal: true                             # pas d'accès Internet, pas joignable depuis l'extérieur
+  proxy:
+    external: true                             # créé par la stack traefik

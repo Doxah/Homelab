@@ -40,6 +40,14 @@ services:
     volumes:
       - ./data:/data                           # le dossier doit appartenir à l'UID ci-dessus
 
+    # --- Publication par Traefik (au lieu de `ports:`) : voir compose/traefik/README.md ---
+    # networks: [default, proxy]
+    # labels:
+    #   traefik.enable: "true"
+    #   traefik.http.routers.app.rule: Host(`app.${DOMAIN:?secret manquant}`)
+    #   traefik.http.services.app.loadbalancer.server.port: "8080"
+    #   traefik.http.routers.app.middlewares: lan-admin@docker   # interfaces d'admin uniquement
+
   # Exemple de base de données : jamais de port publié, réseau interne uniquement
   # db:
   #   image: postgres:17.2
@@ -51,3 +59,7 @@ services:
   # networks:
   #   interne:
   #     internal: true                          # pas d'accès Internet ni depuis l'extérieur
+#
+# networks:                                   # avec Traefik : réseau partagé créé par la stack traefik
+#   proxy:
+#     external: true

@@ -1,0 +1,144 @@
+# Traefik : reverse proxy du Mini PC (remplace npmplus, CT LXC du T130).
+# Secrets : secrets.sops.env (DOMAIN, BIND_IP, ACME_EMAIL, CF_DNS_API_TOKEN, ADMIN_CIDRS, DOCKER_GID).
+# Lancement : scripts/compose-up.sh traefik
+# Données : ./data/acme.json (certificats Let's Encrypt + clé du compte ACME), 1000:1000 en 600. Jamais dans Git.
+#
+# Principe :
+# - Les services s'annoncent par des labels dans LEUR compose (traefik.enable=true + router) et rejoignent le réseau `proxy`.
+# - Traefik ne touche jamais au socket Docker : il passe par socket-proxy, en lecture seule, sur un réseau interne dédié.
+# - Certificat wildcard *.DOMAIN par challenge DNS-01 Cloudflare : valable aussi pour les services internes (Vaultwarden).
+# - Les backends hors Docker (T130, NAS…) se déclarent dans ./dynamic/*.yml (provider file).
+services:
+  traefik:
+    image: traefik:v3.7.14                     # version figée
+    container_name: traefik
+    restart: unless-stopped
+
+    user: "1000:1000"
+    cap_drop: [ALL]                            # ports internes > 1024 : pas besoin de CAP_NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 200
+
+    # 80/443 publiés sur l'IP LAN du Mini PC seulement ; c'est le démon Docker qui écoute sur les ports < 1024.
+    # Le tableau de bord n'est PAS publié : il passe par le router traefik.<DOMAIN>, limité à ADMIN_CIDRS.
+    ports:
+      - "${BIND_IP:?secret manquant}:80:8000"
+      - "${BIND_IP:?secret manquant}:443:8443"
+
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --log.level=INFO
+      - --accesslog=true
+
+      # Points d'entrée : HTTP redirige tout vers HTTPS
+      - --entrypoints.web.address=:8000
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:8443
+      - --entrypoints.websecure.http.tls.certresolver=cloudflare
+      - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN:?secret manquant}
+      - --entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN:?secret manquant}
+      - --entrypoints.websecure.http.middlewares=securite@file
+
+      # Certificats : DNS-01 Cloudflare (aucun port à ouvrir, fonctionne pour les services internes)
+      - --certificatesresolvers.cloudflare.acme.email=${ACME_EMAIL:?secret manquant}
+      - --certificatesresolvers.cloudflare.acme.storage=/data/acme.json
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      # Pour les essais : décommenter (staging Let's Encrypt, pas de limite de débit), puis vider data/acme.json avant de repasser en prod
+      # - --certificatesresolvers.cloudflare.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+
+      # Fournisseurs de configuration
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedByDefault=false        # un conteneur n'est publié que s'il a traefik.enable=true
+      - --providers.docker.network=proxy
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+
+      # Tableau de bord (via router, jamais en mode insecure) et ping pour le healthcheck (entrypoint interne :8080, non publié)
+      - --api.dashboard=true
+      - --entrypoints.traefik.address=:8080    # interne : ping (healthcheck), jamais publié
+      - --ping=true
+
+    environment:
+      TZ: Europe/Paris
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?secret manquant}  # token Cloudflare : Zone:DNS:Edit + Zone:Zone:Read sur la zone
+      DOMAIN: ${DOMAIN:?secret manquant}                      # utilisable dans dynamic/*.yml
+
+    volumes:
+      - ./data:/data                           # acme.json
+      - ./dynamic:/etc/traefik/dynamic:ro
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.rule: Host(`traefik.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.service: api@internal
+      traefik.http.routers.dashboard.middlewares: lan-admin@docker
+      # Middleware partagé « postes d'admin » : utilisable par toutes les stacks (lan-admin@docker) et par dynamic/*.yml
+      traefik.http.middlewares.lan-admin.ipallowlist.sourcerange: ${ADMIN_CIDRS:?secret manquant}   # CIDR séparés par des virgules
+
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    networks: [proxy, socket]
+    depends_on:
+      - socket-proxy
+
+  # Filtre l'API Docker : Traefik ne peut que LIRE la liste des conteneurs et les événements.
+  # Pas de POST/DELETE : même compromis, Traefik ne peut ni créer ni lancer de conteneur.
+  socket-proxy:
+    image: wollomatic/socket-proxy:1.13.1      # version figée
+    container_name: socket-proxy
+    restart: unless-stopped
+
+    user: "65534:${DOCKER_GID:?secret manquant}"   # nobody + groupe docker de l'hôte (getent group docker | cut -d: -f3)
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+
+    command:
+      - -loglevel=info
+      - -listenip=0.0.0.0
+      - -allowfrom=traefik                     # seul le conteneur traefik peut se connecter
+      - -allowHEAD=/_ping                      # négociation de version de l'API (Traefik >= 3.6)
+      - -allowGET=/(_ping|v1\..{1,2}/(version|containers/.*|events.*))
+      - -allowhealthcheck
+      - -watchdoginterval=3600                 # s'arrête si le socket casse (mise à jour de Docker) : restart le relance
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+
+    networks: [socket]                         # JAMAIS sur le réseau proxy ni publié
+
+networks:
+  # Réseau partagé : chaque stack publiée par Traefik le déclare en `external: true`.
+  proxy:
+    name: proxy
+  # Réseau privé traefik <-> socket-proxy, sans accès Internet
+  socket:
+    internal: true

@@ -1,0 +1,21 @@
+# Configuration dynamique (provider file), rechargée à chaud.
+http:
+  middlewares:
+    # Appliqué à TOUS les routers de websecure (cf. compose.yaml)
+    securite:
+      headers:
+        stsSeconds: 31536000                   # HSTS 1 an (pas de preload : décision à prendre plus tard)
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customFrameOptionsValue: SAMEORIGIN
+
+    # lan-admin (liste blanche ADMIN_CIDRS) est défini par label sur le conteneur traefik (compose.yaml) :
+    # la valeur vient des secrets SOPS, et ce fichier reste du YAML pur. Référence : lan-admin@docker
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true                          # refuse les connexions sans SNI valide (scan par IP)

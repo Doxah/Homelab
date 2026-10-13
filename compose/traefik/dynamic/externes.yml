@@ -1,0 +1,21 @@
+# Services HORS Docker du Mini PC (T130, NAS, autres hôtes) : un router + un service par backend.
+# DOMAIN et les IP restent dans les secrets : utiliser {{ env "VAR" }} et ajouter la variable dans compose.yaml (environment).
+# Exemple pendant la migration depuis npmplus :
+#
+# http:
+#   routers:
+#     nas:
+#       rule: Host(`nas.{{ env "DOMAIN" }}`)
+#       entryPoints: [websecure]
+#       middlewares: [lan-admin@docker]
+#       service: nas
+#   services:
+#     nas:
+#       loadBalancer:
+#         servers:
+#           - url: "https://{{ env "NAS_IP" }}:5001"
+#         serversTransport: auto-signe
+#   serversTransports:
+#     auto-signe:
+#       insecureSkipVerify: true               # backend en certificat auto-signé sur le LAN uniquement
+http: {}

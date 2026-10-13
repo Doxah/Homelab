@@ -1,0 +1,8 @@
+# Données locales de la stack (bind mounts) : jamais dans Git
+/config/
+/data/
+/storage/
+/logs/
+/downloads/
+/staging/
+/slskd/

@@ -1,0 +1,92 @@
+# SoulSync + slskd — stack musique « Spotify selfhost » (https://github.com/Nezreka/SoulSync)
+# SoulSync : découverte (Spotify, Deezer, ListenBrainz…), wishlist, téléchargement, tags, rangement de la bibliothèque.
+# slskd    : client Soulseek, source de téléchargement de SoulSync (joint en interne : http://slskd:5030).
+# Secrets : secrets.sops.env (BIND_IP, MUSIC_DIR, SLSKD_*). Lancement : scripts/compose-up.sh soulsync
+# Données locales (./config, ./data, ./storage, ./logs, ./downloads, ./staging, ./slskd) : propriétaire 1000:1000, jamais dans Git.
+services:
+  soulsync:
+    image: boulderbadgedad/soulsync:3.5.3     # version figée (même build que ghcr.io/nezreka/soulsync:3.5.3)
+    container_name: soulsync
+    restart: unless-stopped
+
+    # L'entrypoint de l'image démarre en root (usermod/chown/gosu) SAUF si on tourne déjà avec l'UID de PUID (1000 par défaut) :
+    # il fait alors directement `exec gunicorn`. Ses mkdir/chown échouent sans bloquer.
+    # Effet secondaire : l'« audit d'écriture » (gosu) affiche des WARNING au démarrage, sans conséquence.
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/Stream:uid=1000,gid=1000          # cache de lecture « Play » (vidé à chaque usage)
+      - /home/soulsync:uid=1000,gid=1000       # $HOME : caches yt-dlp / Deno
+
+    mem_limit: 2g                              # valeur de l'upstream (ffmpeg, matching, imports)
+    cpus: 2.0
+    pids_limit: 512
+
+    # Publié sur l'IP LAN du Mini PC seulement : npmplus s'y connecte.
+    # Pas de 8888/8889 : derrière un reverse proxy HTTPS, le callback OAuth Spotify passe par le port principal
+    # (redirect URI = https://<url de SoulSync>/callback, cf. Support/DOCKER-OAUTH-FIX.md de l'upstream).
+    ports:
+      - "${BIND_IP:?secret manquant}:8008:8008"
+
+    environment:
+      TZ: Europe/Paris
+      SOULSYNC_CONFIG_PATH: /app/config/config.json
+
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data                       # music_library.db, video_library.db, audiobooks.db (SQLite WAL)
+      - ./storage:/app/storage                 # cache d'images, avatars, staging des albums
+      - ./logs:/app/logs
+      - ./downloads:/app/downloads             # ENTRÉE : même dossier que les téléchargements de slskd
+      - ./staging:/app/Staging                 # import de musique existante (optionnel)
+      - ${MUSIC_DIR:?secret manquant}:/app/Transfer   # SORTIE : bibliothèque rangée, lue par Jellyfin
+                                               # (Settings → Downloads → Transfer = /app/Transfer)
+
+    depends_on:
+      - slskd
+
+  slskd:
+    image: slskd/slskd:0.26.1
+    container_name: slskd
+    restart: unless-stopped
+
+    # Mode `user:` natif de l'image : jamais root, pas de PUID/PGID (l'entrypoint refuse les deux à la fois).
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /.net:uid=1000,gid=1000                # extraction du bundle .NET (DOTNET_BUNDLE_EXTRACT_BASE_DIR)
+
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
+
+    ports:
+      - "${BIND_IP:?secret manquant}:5030:5030"    # interface web, via npmplus (optionnel : SoulSync passe par le réseau interne)
+      # Port Soulseek entrant : améliore les résultats (pairs derrière NAT), mais demande une redirection
+      # Livebox → pfSense → Mini PC (double NAT). À activer plus tard si besoin.
+      # - "50300:50300"
+
+    environment:
+      TZ: Europe/Paris
+      SLSKD_SLSK_USERNAME: ${SLSKD_SLSK_USERNAME:?secret manquant}   # compte réseau Soulseek
+      SLSKD_SLSK_PASSWORD: ${SLSKD_SLSK_PASSWORD:?secret manquant}
+      SLSKD_USERNAME: ${SLSKD_USERNAME:?secret manquant}             # interface web
+      SLSKD_PASSWORD: ${SLSKD_PASSWORD:?secret manquant}
+      SLSKD_JWT_KEY: ${SLSKD_JWT_KEY:?secret manquant}               # fixe : sinon déconnexion à chaque redémarrage
+      SLSKD_API_KEY: ${SLSKD_API_KEY:?secret manquant}               # clé utilisée par SoulSync
+      SLSKD_REMOTE_CONFIGURATION: "false"     # la config ne se modifie pas depuis l'UI/API
+      SLSKD_DOWNLOADS_DIR: /app/downloads     # MÊME chemin que dans SoulSync : il retrouve les fichiers via le chemin rapporté par slskd
+      SLSKD_SHARED_DIR: /music                 # partager est la règle sur Soulseek (sinon bannissements/files d'attente)
+
+    volumes:
+      - ./slskd:/app                           # slskd.yml, base, logs
+      - ./downloads:/app/downloads             # même dossier (et même chemin) que côté SoulSync
+      - ${MUSIC_DIR:?secret manquant}:/music:ro    # partage en lecture seule de la bibliothèque

@@ -10,6 +10,7 @@
 | **Portabase** | En test |
 | **ConvertX** | Conversion de fichiers |
 | **GLPI** | Gestion de parc / helpdesk, en test ([stack](../compose/glpi/)) |
+| **SoulSync + slskd** | Stack musique « Spotify selfhost » : découverte, téléchargement Soulseek, rangement vers la bibliothèque Jellyfin, en préparation ([stack](../compose/soulsync/)) |
 | **DiscoPanel** | Panel des serveurs Minecraft |
 | **2× serveur CS2** | Tests, à supprimer (trop d'espace disque) |
 | **Immich** | À réinstaller |

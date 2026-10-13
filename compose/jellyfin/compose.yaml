@@ -1,0 +1,212 @@
+name: jellyfin-stack
+# Secrets : secrets.sops.env (NAS_ROOT, NAS_2_ROOT, VPN_*, OPENVPN_*, WIREGUARD_PRIVATE_KEY, SERVER_COUNTRIES)
+#           + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh jellyfin
+# Données : ./config (jamais dans Git).
+# Traefik : videos (Jellyfin), seerr (LAN) ; radarr, sonarr, jackett (postes d'admin). Les applis se joignent
+# entre elles par le réseau default de la stack (http://jackett:9117, http://gluetun:9091…), plus par l'IP de l'hôte.
+
+#---------------------------------------------------------------------#
+# Full stack Jellyfin                                                 #
+#                                                                     #
+# Montage clé : ${NAS_ROOT:?secret manquant} (/media/Partage_NAS_4To) est monté en     #
+# /data dans Transmission, Sonarr et Radarr. Les chemins sont donc    #
+# IDENTIQUES dans tous les conteneurs :                               #
+#   /data/Jellyfin/films          -> bibliothèque films               #
+#   /data/Jellyfin/series         -> bibliothèque séries              #
+#   /data/Jellyfin-downloads      -> téléchargements + seed           #
+# => Sonarr/Radarr importent par hardlink/copie sans déplacer le      #
+#    fichier d'origine : les torrents continuent de seeder.           #
+#---------------------------------------------------------------------#
+
+services:
+
+  # ------------------------------------------------------------------ #
+  # VPN — tout le trafic torrent passe par gluetun (ProtonVPN)         #
+  # ------------------------------------------------------------------ #
+  gluetun:
+    image: qmcgaw/gluetun:v3
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    # Interface Transmission : reste publiée en direct pour l'instant (pas encore derrière Traefik, voir README).
+    ports:
+      - 9091:9091/tcp # transmission web UI
+    environment:
+      - UPDATER_PERIOD=24h
+      - TZ=Europe/Paris
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=${VPN_TYPE}
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - OPENVPN_CIPHERS=AES-256-GCM
+      # TCP au lieu d'UDP : le chemin réseau du serveur (double-NAT) dégrade
+      # fortement l'UDP (84% de perte de paquets constatée). Le TCP contourne
+      # le problème : ~370 Mbps vs ~40 en UDP. Repasser à udp si le réseau change.
+      - OPENVPN_PROTOCOL=tcp
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - PORT_FORWARD_ONLY=on
+      - VPN_PORT_FORWARDING=on
+      # Pousse automatiquement le port forwardé par ProtonVPN dans Transmission
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'apk add transmission-remote && transmission-remote localhost -p {{PORTS}} && transmission-remote localhost -t all --reannounce'
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+    volumes:
+      - ./config/gluetun:/gluetun
+    restart: unless-stopped
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    network_mode: "service:gluetun" # pas de réseau propre : tout passe par le VPN
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      - TZ=Europe/Paris
+      - PUID=1000
+      - PGID=1000
+      # - USER=admin        # décommenter pour protéger l'UI ; adapter alors
+      # - PASS=changeme     # la commande transmission-remote de gluetun (-n user:pass)
+    volumes:
+      - ./config/transmission:/config
+      - ${NAS_ROOT:?secret manquant}:/data
+      - ./config/transmission/watch:/watch
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ #
+  # Indexeurs                                                          #
+  # ------------------------------------------------------------------ #
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - TZ=Europe/Paris
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config/jackett:/config
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.jackett.rule: Host(`jackett.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.jackett.middlewares: lan-admin@docker
+      traefik.http.services.jackett.loadbalancer.server.port: "9117"
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ #
+  # Gestion films / séries                                             #
+  # ------------------------------------------------------------------ #
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - TZ=Europe/Paris
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config/radarr:/config
+      - ${NAS_ROOT:?secret manquant}:/data
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.radarr.rule: Host(`radarr.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.radarr.middlewares: lan-admin@docker
+      traefik.http.services.radarr.loadbalancer.server.port: "7878"
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - TZ=Europe/Paris
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config/sonarr:/config
+      - ${NAS_ROOT:?secret manquant}:/data
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.sonarr.rule: Host(`sonarr.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.sonarr.middlewares: lan-admin@docker
+      traefik.http.services.sonarr.loadbalancer.server.port: "8989"
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ #
+  # Requêtes utilisateurs                                              #
+  # Seerr = ex-Jellyseerr (projet renommé seerr-team/seerr). L'ancienne #
+  # image fallenbagel/jellyseerr:latest est figée en 2.7.3 (août 2025). #
+  # Tourne en UID 1000 : le dossier config doit être chown 1000:1000.   #
+  # ------------------------------------------------------------------ #
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    init: true
+    container_name: seerr
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - ./config/jellyseerr:/app/config
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.seerr.rule: Host(`seerr.${DOMAIN:?secret manquant}`)
+      traefik.http.services.seerr.loadbalancer.server.port: "5055"
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ #
+  # Serveur média                                                      #
+  # ------------------------------------------------------------------ #
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - TZ=Europe/Paris
+      - PUID=1000
+      - PGID=1000
+      # - JELLYFIN_PublishedServerUrl=http://192.168.1.X:8096
+    volumes:
+      - ./config/jellyfin:/config
+      - ${NAS_ROOT:?secret manquant}/Jellyfin:/media # /media/films et /media/series
+      - ${NAS_2_ROOT:?secret manquant}:/media_famille
+    # 8096 reste publié tant que le tunnel cloudflared pointe dessus (étape proxy.9) et pour les clients TV en IP directe.
+    ports:
+      - 8096:8096 # http
+      - 7359:7359/udp # découverte locale (optionnel)
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.jellyfin.rule: Host(`videos.${DOMAIN:?secret manquant}`)
+      traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
+    # Transcodage matériel Intel QuickSync (UHD 770) - actif
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "105" # GID du groupe 'render' de l'hôte (getent group render) - accès à renderD128
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ #
+  # Mises à jour automatiques des conteneurs (tous les jours à 01h00)   #
+  # Fork maintenu : containrrr/watchtower est abandonné et incompatible #
+  # avec les Docker récents (client API trop ancien).                   #
+  # gluetun et transmission sont VOLONTAIREMENT exclus (non listés) :   #
+  # leur recréation casse le netns partagé + le port forwardé. On les   #
+  # met à jour à la main (voir README).                                 #
+  # ------------------------------------------------------------------ #
+  watchtower:
+    image: ghcr.io/nicholas-fedor/watchtower:latest
+    container_name: watchtower
+    # Ne surveille QUE les conteneurs listés (gluetun/transmission exclus)
+    command: jackett radarr sonarr seerr jellyfin watchtower
+    environment:
+      - TZ=Europe/Paris
+      - WATCHTOWER_CLEANUP=true          # supprime les anciennes images après update
+      - WATCHTOWER_SCHEDULE=0 0 1 * * *   # cron 6 champs : sec min heure * * *  -> 01h00
+      - WATCHTOWER_TIMEOUT=60s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

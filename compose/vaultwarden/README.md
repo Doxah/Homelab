@@ -23,12 +23,12 @@ Seul le **hash** va dans `secrets.sops.env` ; le jeton en clair sert à se conne
 ```bash
 cd compose/vaultwarden
 mkdir -p data tls
-sops secrets.sops.env        # créer le fichier avec les 3 variables ci-dessus
+sops secrets.sops.env        # créer le fichier avec les 3 variables ci-dessus (BIND_IP = IP LAN, pas 127.0.0.1 : sinon injoignable depuis le reverse proxy)
 
 # Certificat TLS interne auto-signé (hors Git : *.pem est ignoré)
 sops exec-env secrets.sops.env 'openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
   -keyout tls/key.pem -out tls/cert.pem -days 3650 -subj "/CN=vaultwarden" \
-  -addext "subjectAltName=DNS:vaultwarden,IP:$BIND_IP"'
+  -addext "subjectAltName=DNS:vaultwarden,DNS:${DOMAIN#https://},IP:$BIND_IP"'
 
 # Données : base sauvegardée avec `sqlite3 .backup` (sans fichiers -wal/-shm) + rsa_key.pem
 cp /chemin/vw-backup/db.sqlite3 data/
@@ -41,4 +41,52 @@ cd ../.. && scripts/compose-up.sh vaultwarden
 ```
 
 ## Sauvegarde
-Ne jamais copier `db.sqlite3` à chaud : utiliser `sqlite3 .backup`.
+Ne jamais copier `db.sqlite3` à chaud : les modifications récentes sont dans `db.sqlite3-wal` tant qu'il n'y a pas eu de checkpoint
+(constaté sur le CT : `db.sqlite3` vieux de deux semaines, WAL de 3 Mo). On utilise `sqlite3 .backup`, qui produit une base complète et cohérente.
+
+Script : [`scripts/vaultwarden-backup.sh`](../../scripts/vaultwarden-backup.sh) (base + `rsa_key.pem` + `attachments/`/`sends/` s'ils existent,
+contrôle d'intégrité, archive datée, rétention locale, copie rsync vers le NAS).
+
+Prérequis (une fois, par un compte sudoer) : `apt install sqlite3 rsync`.
+Variables à ajouter dans `secrets.sops.env` :
+```dotenv
+# BACKUP_DIR=/home/<utilisateur>/backups/vaultwarden
+# BACKUP_KEEP_DAYS=14
+# RSYNC_DEST=<utilisateur>@<nas>::<module>/vaultwarden
+# RSYNC_PASSWORD=<mot de passe du module rsync>
+```
+Planification (crontab de l'utilisateur qui lance la stack) :
+```cron
+15 3 * * * /home/<utilisateur>/homelab/scripts/vaultwarden-backup.sh >> /home/<utilisateur>/backups/vaultwarden.log 2>&1
+```
+
+### Test de restauration (à faire après la mise en place, puis régulièrement)
+```bash
+mkdir -p /tmp/vw-restore && tar xzf ~/backups/vaultwarden/vaultwarden-<date>.tar.gz -C /tmp/vw-restore
+sqlite3 /tmp/vw-restore/db.sqlite3 'PRAGMA integrity_check; SELECT count(*) FROM ciphers;'
+```
+Test complet : lancer une instance jetable sur ces données (autre port, `SIGNUPS_ALLOWED=false`), s'y connecter et vérifier le nombre d'entrées.
+
+## Bascule depuis le CT
+Pas d'accès externe : Vaultwarden n'est joint qu'en interne, via npmplus. Le CT n'avait ni `DOMAIN`, ni SMTP, ni `config.json`, ni pièces jointes.
+
+1. **Arrêter Vaultwarden dans le CT** (plus aucune écriture) : `systemctl list-units | grep -i vault` puis `systemctl stop <service>`.
+2. **Copie finale** dans le CT, **chemins absolus uniquement** (`sqlite3` crée une base vide si le fichier source n'existe pas, et `.backup` copie alors cette base vide sans erreur) :
+   ```bash
+   sqlite3 /opt/vaultwarden/data/db.sqlite3 "SELECT count(*) FROM users; SELECT count(*) FROM ciphers;"   # 1 et ~550
+   sqlite3 /opt/vaultwarden/data/db.sqlite3 ".backup '/root/vw-final.sqlite3'"
+   sqlite3 /root/vw-final.sqlite3 "PRAGMA integrity_check; SELECT count(*) FROM users; SELECT count(*) FROM ciphers;"
+   ```
+   Transfert depuis le T130 : `pct pull <id> /root/vw-final.sqlite3 /root/vw-final.sqlite3`, puis `scp` vers `/tmp/` du Mini PC (`pct pull` ne copie qu'un fichier).
+3. **Remplacer la copie de test** sur le Mini PC :
+   ```bash
+   scripts/compose-up.sh vaultwarden stop     # toujours via le script : un `docker compose` nu n'a pas les secrets
+   rm -f compose/vaultwarden/data/db.sqlite3*  # db + -wal + -shm de test, sinon le WAL de test serait rejoué sur la nouvelle base
+   cp /tmp/vw-final.sqlite3 compose/vaultwarden/data/db.sqlite3 && ls -ln compose/vaultwarden/data
+   scripts/compose-up.sh vaultwarden
+   ```
+4. **npmplus** : proxy host du coffre → schéma `https`, IP du Mini PC, port `8443`.
+5. **Vérifier** dans `/admin` → Users (1 compte, ~550 entrées), puis depuis le navigateur, l'appli bureau et le mobile : connexion, synchro, créer une entrée de test et la retrouver sur un autre client.
+6. **Garder le CT arrêté 1 à 2 semaines** sans le démarrer au boot (`pct set <id> -onboot 0` sur le T130), puis le supprimer.
+
+Retour arrière : redémarrer le CT et remettre l'ancienne destination dans npmplus. Tout ce qui a été modifié sur le Mini PC entre-temps est perdu.

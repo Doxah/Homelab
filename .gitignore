@@ -59,3 +59,8 @@ desktop.ini
 
 # Données des stacks Docker (volumes bind)
 compose/*/data/
+compose/*/config/
+compose/*/portabase-data/
+compose/*/postgres-data/
+compose/*/backups/
+compose/*/tmp/

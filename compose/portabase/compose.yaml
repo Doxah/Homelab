@@ -1,0 +1,68 @@
+# Portabase — tableau de bord de sauvegarde des bases de données (https://portabase.io)
+# Secrets : secrets.sops.env (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PROJECT_SECRET)
+#           + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh portabase
+# Publié par Traefik (portabase.<DOMAIN>) via le réseau proxy : aucun port publié sur l'hôte.
+# Données : ./portabase-data (dont les sauvegardes locales) et ./postgres-data. Jamais dans Git.
+name: portabase-dashboard
+
+services:
+  portabase:
+    image: portabase/portabase:latest          # TODO : figer la version qui tourne (docker inspect portabase-app)
+    container_name: portabase-app
+    restart: unless-stopped
+
+    environment:
+      TZ: Europe/Paris
+      POSTGRES_USER: ${POSTGRES_USER:?secret manquant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?secret manquant}
+      POSTGRES_DB: ${POSTGRES_DB:?secret manquant}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      PROJECT_URL: https://portabase.${DOMAIN:?secret manquant}
+      PROJECT_SECRET: ${PROJECT_SECRET:?secret manquant}   # signe les sessions
+      AUTH_SIGNUP_ENABLED: "false"             # inscription fermée (le compte admin existe déjà)
+      LOG_LEVEL: info
+
+    volumes:
+      - ./portabase-data:/data                 # données du dashboard, dont les sauvegardes en stockage local
+
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    networks: [proxy, portabase-backend]       # proxy : Traefik + sorties ; backend : base PostgreSQL
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.portabase.rule: Host(`portabase.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.portabase.middlewares: lan-admin@docker   # outil d'admin : postes d'admin uniquement
+      traefik.http.services.portabase.loadbalancer.server.port: "80"
+
+  db:
+    image: postgres:17-alpine
+    container_name: portabase-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?secret manquant}
+      POSTGRES_USER: ${POSTGRES_USER:?secret manquant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?secret manquant}
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [portabase-backend]              # jamais de port publié
+
+networks:
+  portabase-backend:
+    internal: true
+  proxy:
+    external: true                             # créé par la stack traefik

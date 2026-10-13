@@ -7,7 +7,7 @@ C'est aussi l'ingress par défaut de K3s : les notions (entrypoints, routers, mi
 ```
 Postes LAN ──► pfSense (host overrides *.DOMAIN → Mini PC) ──► Traefik :443 ──► réseau Docker « proxy » ──► conteneurs
                                                                    │
-                                                                   ├──► dynamic/externes.yml ──► T130, NAS… (hors Docker)
+                                                                   ├──► dynamic/externes.yml (copie de .exemple) ──► T130, NAS… (hors Docker)
                                                                    └──► socket-proxy (lecture seule) ──► /var/run/docker.sock
 ```
 
@@ -35,8 +35,8 @@ Livré **pré-rempli** avec une ligne commentée par variable : `sops compose/tr
 ## Premier démarrage
 ```bash
 cd compose/traefik
-mkdir -p data && touch data/acme.json && chmod 600 data/acme.json   # Traefik refuse un acme.json lisible par d'autres
-ls -ln data                                                          # doit appartenir à 1000:1000
+mkdir -p data && touch data/acme.json && chmod 600 data/acme.json   # AVANT le 1er lancement : sinon Docker crée ./data en root
+ls -ln data                                  # dossier ET acme.json en 1000:1000 (sinon : « open /data/acme.json: permission denied »)
 ss -tlnp | grep -E ':(80|443) '                                      # rien ne doit déjà écouter sur 80/443
 
 cd ../.. && scripts/compose-up.sh traefik config --quiet && scripts/compose-up.sh traefik pull && scripts/compose-up.sh traefik
@@ -79,7 +79,7 @@ Faire service par service, npmplus reste en place tant que tout n'est pas passé
 2. Pour un service : ajouter les labels + le réseau `proxy`, retirer son `ports:`, relancer la stack.
 3. Tester avec `curl --resolve` (sans toucher au DNS).
 4. Dans pfSense (*Services → DNS Resolver → Host Overrides*), faire pointer le sous-domaine vers le Mini PC au lieu de npmplus.
-5. Supprimer l'hôte dans npmplus. Les services restés sur le T130 ou les NAS passent par `dynamic/externes.yml`.
+5. Supprimer l'hôte dans npmplus. Les services restés sur le T130 ou les NAS passent par `dynamic/externes.yml` (copier `externes.yml.exemple`, ne jamais laisser un fichier vide ou `http: {}`).
 6. Quand npmplus n'a plus d'hôte : arrêter le CT, le supprimer après 1-2 semaines.
 
 **Vaultwarden** : terminer d'abord sa bascule avec npmplus (une seule chose à la fois), puis le passer derrière Traefik

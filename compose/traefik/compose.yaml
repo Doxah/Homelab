@@ -45,6 +45,7 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:8443
       - --entrypoints.websecure.http.aliasHeadersStrategy=delete
+      - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=15m   # défaut 60 s : coupe les gros envois (ConvertX, Immich…)
       - --entrypoints.websecure.http.tls.certresolver=cloudflare
       - --entrypoints.websecure.http.tls.domains[0].main=${DOMAIN:?secret manquant}
       - --entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN:?secret manquant}

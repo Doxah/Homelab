@@ -5,11 +5,12 @@ Conversion de fichiers (documents, images, audio, vidéo) via une interface web.
 | | |
 |---|---|
 | Image | `ghcr.io/c4illin/convertx` |
-| Port | 3000 |
+| Accès | `https://convertx.<DOMAIN>` via Traefik (port 3000 non publié) |
 | Données | `./data` (non versionné) |
-| Secrets | `secrets.sops.env` : `JWT_SECRET` |
+| Secrets | `secrets.sops.env` : `JWT_SECRET`, `DOMAIN` |
 
 ## Lancer
+Prérequis : la stack `traefik` tourne (elle crée le réseau `proxy`).
 ```bash
 scripts/compose-up.sh convertx
 ```

@@ -1,5 +1,6 @@
 # ConvertX — conversion de fichiers (https://github.com/C4illin/ConvertX)
-# Lancement : scripts/compose-up.sh convertx
+# Secrets : secrets.sops.env (JWT_SECRET, DOMAIN). Lancement : scripts/compose-up.sh convertx
+# Publié par Traefik (convertx.<DOMAIN>) via le réseau proxy : aucun port publié sur l'hôte.
 services:
   convertx:
     image: ghcr.io/c4illin/convertx:v0.19.0   # version figée (Renovate la mettra à jour)
@@ -18,8 +19,11 @@ services:
     cpus: 2.0
     pids_limit: 512
 
-    ports:
-      - "3000:3000"                            # joint par le reverse proxy
+    networks: [proxy]                          # seul réseau : ConvertX n'a besoin de joindre aucun autre conteneur
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.convertx.rule: Host(`convertx.${DOMAIN:?secret manquant}`)
+      traefik.http.services.convertx.loadbalancer.server.port: "3000"
     environment:
       TZ: Europe/Paris
       HOME: /tmp                               # LibreOffice écrit son profil dans $HOME
@@ -27,3 +31,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?secret manquant, lancer via scripts/compose-up.sh}
     volumes:
       - ./data:/app/data                       # données locales, exclues de Git
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

@@ -1,5 +1,5 @@
 # Auto detect text files and perform LF normalization
-* text=auto
+* text=auto eol=lf
 
 # Fichiers SOPS et scripts : toujours en LF (un CR en fin de valeur casse les secrets)
 *.sops.env text eol=lf

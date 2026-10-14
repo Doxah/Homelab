@@ -20,7 +20,7 @@ Serveur **stdio** lancé par Claude Desktop sur le poste Windows, via l'API REST
 ## 2. Secrets (`secrets.sops.env`, chiffré)
 Le fichier est déjà dans le dépôt, avec les variables en commentaire : `sops mcp/glpi/secrets.sops.env`, décommenter et remplir.
 ```dotenv
-GLPI_URL=https://glpi.doxah-labs.work
+GLPI_URL=https://glpi.<domaine>
 GLPI_APP_TOKEN=...
 GLPI_USER_TOKEN=...
 ```
@@ -45,9 +45,9 @@ Redémarrer Claude Desktop. Dans les réglages des connecteurs, laisser les outi
 
 ## Test
 ```powershell
-$env:GLPI_URL="https://glpi.doxah-labs.work"   # ou via sops exec-env
+$env:GLPI_URL="https://glpi.<domaine>"   # ou via sops exec-env
 sops -d mcp/glpi/secrets.sops.env               # vérifier le déchiffrement
 # Test API sans le MCP :
-curl.exe -s -H "App-Token: <app>" -H "Authorization: user_token <user>" https://glpi.doxah-labs.work/apirest.php/initSession
+curl.exe -s -H "App-Token: <app>" -H "Authorization: user_token <user>" https://glpi.<domaine>/apirest.php/initSession
 ```
 Réponse attendue : `{"session_token":"..."}`. Erreurs fréquentes : `ERROR_APP_TOKEN_PARAMETERS_MISSING` (app token), `ERROR_NOT_ALLOWED_IP` (plage IP du client API).

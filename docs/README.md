@@ -14,6 +14,7 @@ Documentation publique. Les adresses IP, règles de pare-feu, configuration VPN 
 | [08-outils-depannage.md](08-outils-depannage.md) | Commandes et méthode de dépannage |
 | [09-feuille-de-route.md](09-feuille-de-route.md) | Objectifs : simplification et apprentissage DevOps |
 | [10-secrets.md](10-secrets.md) | Gestion des secrets avec SOPS + age |
+| [11-pfsense-acme.md](11-pfsense-acme.md) | Certificat Let's Encrypt du webGUI pfSense (ACME + DNS Cloudflare) |
 
 ## Principes
 - Docker Compose plutôt que LXC (les LXC sont jugés opaques).

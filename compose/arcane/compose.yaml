@@ -12,7 +12,7 @@ name: arcane
 
 services:
   arcane:
-    image: ghcr.io/getarcaneapp/manager:vX.Y.Z   # TODO : figer la version qui tourne actuellement
+    image: ghcr.io/getarcaneapp/manager:v2.16.0   # version figée : mettre à jour volontairement
     container_name: arcane
     restart: unless-stopped
 

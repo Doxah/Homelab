@@ -13,7 +13,7 @@ Jellyfin + Seerr (requêtes) + Radarr / Sonarr / Jackett + Transmission derrièr
 | `videos.<DOMAIN>` | LAN | 8096 reste aussi publié (tunnel cloudflared, clients TV en IP) |
 | `demande-videos.<DOMAIN>` | LAN | 5055 reste aussi publié (tunnel cloudflared) |
 | `radarr.` / `sonarr.` / `jackett.<DOMAIN>` | postes d'admin (`lan-admin@docker`) | plus de port publié |
-| Transmission | `http://<IP Mini PC>:9091` | pas encore derrière Traefik (l'UI vit dans le réseau de gluetun) |
+| `transmission.<DOMAIN>` | postes d'admin | via `compose/traefik/dynamic/transmission.yml` → `BIND_IP:9091` (l'UI vit dans le réseau de gluetun) |
 
 ## Migration vers ce dossier (une seule fois)
 La stack tournait depuis un autre dossier avec un `.env` en clair. Les noms (`name: jellyfin-stack`, `container_name`) sont

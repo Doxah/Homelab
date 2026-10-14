@@ -1,0 +1,48 @@
+# DiscoPanel — panel de gestion des serveurs Minecraft (https://github.com/nickheyer/discopanel)
+# Secrets : secrets.sops.env (DISCOPANEL_HOST_DATA_PATH) + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh discopanel
+# Interface publiée par Traefik (disco.<DOMAIN>), postes d'admin uniquement : le port 8080 n'est plus publié.
+# Les ports Minecraft restent publiés : ce n'est pas du HTTP, Traefik ne s'en occupe pas.
+#
+# EXCEPTION DOCUMENTÉE AU MOINDRE PRIVILÈGE : DiscoPanel crée et pilote les conteneurs des serveurs Minecraft,
+# il a donc besoin du socket Docker (= root sur l'hôte tant que Docker n'est pas rootless). Même raisonnement qu'Arcane.
+name: discopanel
+
+services:
+  discopanel:
+    image: nickheyer/discopanel:latest         # TODO : figer la version qui tourne (docker inspect discopanel)
+    container_name: discopanel
+    restart: unless-stopped
+
+    ports:
+      - "25565:25565"                          # Minecraft / proxy Minecraft par nom d'hôte
+      - "25565-25665:25565-25665/udp"          # UDP (certaines fonctions Minecraft)
+    #   - "25565-25665:25565-25665/tcp"        # ports supplémentaires si besoin
+
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.discopanel.rule: Host(`disco.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.discopanel.middlewares: lan-admin@docker
+      traefik.http.services.discopanel.loadbalancer.server.port: "8080"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Données des serveurs : le chemin HÔTE doit être identique dans le volume et dans DISCOPANEL_HOST_DATA_PATH,
+      # car DiscoPanel le transmet au démon Docker pour monter les données dans les conteneurs Minecraft.
+      - ${DISCOPANEL_HOST_DATA_PATH:?secret manquant}:/app/data
+      - ./backups:/app/backups
+      - ./tmp:/app/tmp
+      #- ./config.yaml:/app/config.yaml:ro     # optionnel (voir config.example.yaml de l'upstream)
+
+    environment:
+      TZ: Europe/Paris                         # sensible à la casse (EUROPE/PARIS n'existe pas)
+      DISCOPANEL_DATA_DIR: /app/data
+      DISCOPANEL_HOST_DATA_PATH: ${DISCOPANEL_HOST_DATA_PATH:?secret manquant}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

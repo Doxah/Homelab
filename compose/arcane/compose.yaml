@@ -1,0 +1,49 @@
+# Arcane — interface de gestion Docker (https://github.com/getarcaneapp/arcane)
+# Lancement : scripts/compose-up.sh arcane
+#
+# EXCEPTION DOCUMENTÉE AU MOINDRE PRIVILÈGE
+# Arcane pilote Docker (créer, supprimer, redéployer des conteneurs) : il a besoin du socket Docker,
+# ce qui équivaut à un accès root sur l'hôte tant que le démon Docker tourne en root.
+# Un docker-socket-proxy ne filtre que les URL de l'API, pas le contenu des requêtes : Arcane devant
+# créer des conteneurs, il pourrait toujours en créer un privilégié. Le gain serait faible.
+# Mesures retenues : version figée, secrets chiffrés, accès réseau restreint, pas de cgroup hôte.
+# Vraie solution : Docker rootless (le « root » d'Arcane devient alors l'utilisateur administrateur).
+name: arcane
+
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/manager:vX.Y.Z   # TODO : figer la version qui tourne actuellement
+    container_name: arcane
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
+
+    # Publié par Traefik (arcane.<DOMAIN>), postes d'admin uniquement : aucun port publié sur l'hôte.
+    networks: [proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.arcane.rule: Host(`arcane.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.arcane.middlewares: lan-admin@docker
+      traefik.http.services.arcane.loadbalancer.server.port: "3552"
+    environment:
+      TZ: Europe/Paris
+      PUID: "1000"
+      PGID: "1000"
+      PROJECTS_DIRECTORY: /docker
+      APP_URL: https://arcane.${DOMAIN:?secret manquant}   # DOMAIN : compose/commun.sops.env
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?secret manquant}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-data:/app/data
+      - /docker:/docker                 # projets gérés par Arcane (dont le portfolio)
+
+networks:
+  proxy:
+    external: true                      # créé par la stack traefik
+
+volumes:
+  arcane-data:
+    name: arcane_arcane-data            # nom du volume existant : vérifier avec `docker volume ls`

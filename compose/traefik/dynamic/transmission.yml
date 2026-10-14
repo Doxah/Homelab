@@ -1,0 +1,15 @@
+# Transmission (stack jellyfin) : son interface vit dans le réseau de gluetun (network_mode: service:gluetun),
+# Traefik ne peut donc pas la joindre par un label. On passe par le port 9091 publié sur l'IP du Mini PC.
+# Valeurs entre guillemets simples : le fichier reste du YAML valide malgré les templates Go.
+http:
+  routers:
+    transmission:
+      rule: 'Host(`transmission.{{ env "DOMAIN" }}`)'
+      entryPoints: [websecure]
+      middlewares: [lan-admin@docker]
+      service: transmission
+  services:
+    transmission:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "BIND_IP" }}:9091'

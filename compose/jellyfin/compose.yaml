@@ -30,9 +30,10 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    # Interface Transmission : reste publiée en direct pour l'instant (pas encore derrière Traefik, voir README).
+    # Interface Transmission : publiée sur l'IP LAN seulement, Traefik la sert sur transmission.<DOMAIN>
+    # (compose/traefik/dynamic/transmission.yml, postes d'admin). Les conteneurs de la stack passent par gluetun:9091.
     ports:
-      - 9091:9091/tcp # transmission web UI
+      - ${BIND_IP:?secret manquant}:9091:9091/tcp # transmission web UI
     environment:
       - UPDATER_PERIOD=24h
       - TZ=Europe/Paris

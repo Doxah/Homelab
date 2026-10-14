@@ -76,6 +76,7 @@ services:
       TZ: Europe/Paris
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?secret manquant}  # token Cloudflare : Zone:DNS:Edit + Zone:Zone:Read sur la zone
       DOMAIN: ${DOMAIN:?secret manquant}                      # utilisable dans dynamic/*.yml
+      BIND_IP: ${BIND_IP:?secret manquant}                    # idem : backends publiés sur l'hôte (Transmission)
 
     volumes:
       # Syntaxe longue : si ./data n'existe pas, échec explicite au lieu d'un dossier créé en root par Docker

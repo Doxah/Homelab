@@ -18,7 +18,7 @@ services:
 
     security_opt:
       - no-new-privileges:true
-    mem_limit: 512m
+    mem_limit: 2g
     pids_limit: 200
 
     # Publié par Traefik (arcane.<DOMAIN>), postes d'admin uniquement : aucun port publié sur l'hôte.
@@ -32,13 +32,13 @@ services:
       TZ: Europe/Paris
       PUID: "1000"
       PGID: "1000"
-      PROJECTS_DIRECTORY: /docker
+      PROJECTS_DIRECTORY: ${CHEMIN_DOCKER:?secret manquant}
       APP_URL: https://arcane.${DOMAIN:?secret manquant}   # DOMAIN : compose/commun.sops.env
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?secret manquant}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - arcane-data:/app/data
-      - /docker:/docker                 # projets gérés par Arcane (dont le portfolio)
+      - ${CHEMIN_DOCKER:?secret manquant}:${CHEMIN_DOCKER:?secret manquant}                # projets gérés par Arcane (dont le portfolio)
 
 networks:
   proxy:

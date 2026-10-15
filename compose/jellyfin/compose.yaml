@@ -67,9 +67,6 @@ services:
       - TZ=Europe/Paris
       - PUID=1000
       - PGID=1000
-      # Transmission refuse (421 Misdirected Request) toute requête dont l'en-tête Host est un nom de domaine
-      # absent de sa liste blanche (les IP passent toujours) : autoriser le nom servi par Traefik.
-      - HOST_WHITELIST=transmission.${DOMAIN:?secret manquant}
       # - USER=admin        # décommenter pour protéger l'UI ; adapter alors
       # - PASS=changeme     # la commande transmission-remote de gluetun (-n user:pass)
     volumes:

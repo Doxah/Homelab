@@ -70,6 +70,8 @@ sops -d compose/<stack>/secrets.sops.env   # afficher en clair
 scripts/compose-up.sh <stack>              # lancer la stack avec ses secrets
 ```
 
+Usage détaillé et autocomplétion : [13-compose-up.md](13-compose-up.md).
+
 Sous Windows, l'éditeur est défini par `SOPS_EDITOR` (voir Installation).
 
 `scripts/compose-up.sh` utilise `sops exec-env` : les secrets sont passés en variables d'environnement à `docker compose`, sans fichier `.env` en clair sur le disque.

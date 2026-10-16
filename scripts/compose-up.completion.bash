@@ -6,7 +6,7 @@
 _compose_up() {
   local cur="${COMP_WORDS[COMP_CWORD]}" script racine i mot
   script="${COMP_WORDS[0]/#\~/$HOME}"
-  racine="$(cd "$(dirname "$script")/.." 2>/dev/null && pwd)/compose"
+  racine="$(CDPATH= builtin cd -- "$(dirname -- "$script")/.." &>/dev/null && builtin pwd)/compose"   # builtin + CDPATH vide : insensible aux alias/fonctions cd
   [[ -d "$racine" ]] || return 0
 
   local stacks=() d
@@ -39,6 +39,6 @@ _compose_up() {
 }
 # Enregistré aussi pour les chemins relatifs : bash cherche d'abord une complétion pour le chemin tapé tel quel,
 # et bash-completion y colle sinon une complétion « fichiers » par défaut (_comp_complete_minimal).
-_compose_up_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose-up.sh"
+_compose_up_abs="$(CDPATH= builtin cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && builtin pwd)/compose-up.sh"
 complete -F _compose_up compose-up.sh ./scripts/compose-up.sh scripts/compose-up.sh ./compose-up.sh "$_compose_up_abs"
 unset _compose_up_abs

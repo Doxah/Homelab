@@ -12,7 +12,7 @@ name: portabase-agent
 
 services:
   agent:
-    image: portabase/agent:latest              # TODO : figer la version (docker inspect)
+    image: portabase/agent@sha256:991a5a0f3e1b254bb0173d7fb7a330a6df46db27587554429e5a370d8b361c02  # build du 2026-09-26 (digest)
     container_name: portabase-agent
     restart: unless-stopped
     volumes:

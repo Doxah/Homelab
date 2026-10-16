@@ -7,7 +7,7 @@ name: portabase-dashboard
 
 services:
   portabase:
-    image: portabase/portabase:latest          # TODO : figer la version qui tourne (docker inspect portabase-app)
+    image: portabase/portabase@sha256:a9678f03c05b1e0c29e89c866e88926131e6b0b2527332eb0e596e65933324fc  # build du 2026-09-29 (digest)
     container_name: portabase-app
     restart: unless-stopped
 

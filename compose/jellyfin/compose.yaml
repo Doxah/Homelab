@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
 
   transmission:
-    image: lscr.io/linuxserver/transmission:latest
+    image: lscr.io/linuxserver/transmission:4.1.3-r0-ls354
     container_name: transmission
     network_mode: "service:gluetun" # pas de réseau propre : tout passe par le VPN
     depends_on:
@@ -79,7 +79,7 @@ services:
   # Indexeurs                                                          #
   # ------------------------------------------------------------------ #
   jackett:
-    image: lscr.io/linuxserver/jackett:latest
+    image: lscr.io/linuxserver/jackett:v0.24.2856-ls5
     container_name: jackett
     environment:
       - TZ=Europe/Paris
@@ -99,7 +99,7 @@ services:
   # Gestion films / séries                                             #
   # ------------------------------------------------------------------ #
   radarr:
-    image: lscr.io/linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls321
     container_name: radarr
     environment:
       - TZ=Europe/Paris
@@ -117,7 +117,7 @@ services:
     restart: unless-stopped
 
   sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls328
     container_name: sonarr
     environment:
       - TZ=Europe/Paris
@@ -141,7 +141,7 @@ services:
   # Tourne en UID 1000 : le dossier config doit être chown 1000:1000.   #
   # ------------------------------------------------------------------ #
   seerr:
-    image: ghcr.io/seerr-team/seerr:latest
+    image: ghcr.io/seerr-team/seerr:v3.5.0
     init: true
     container_name: seerr
     environment:
@@ -162,7 +162,7 @@ services:
   # Serveur média                                                      #
   # ------------------------------------------------------------------ #
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    image: lscr.io/linuxserver/jellyfin:12.2ubu2604-ls54
     container_name: jellyfin
     environment:
       - TZ=Europe/Paris
@@ -198,7 +198,7 @@ services:
   # met à jour à la main (voir README).                                 #
   # ------------------------------------------------------------------ #
   watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:latest
+    image: ghcr.io/nicholas-fedor/watchtower:1.23.1
     container_name: watchtower
     # Ne surveille QUE les conteneurs listés (gluetun/transmission exclus)
     command: jackett radarr sonarr seerr jellyfin watchtower

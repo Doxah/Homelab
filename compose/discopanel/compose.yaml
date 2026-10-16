@@ -10,7 +10,7 @@ name: discopanel
 
 services:
   discopanel:
-    image: nickheyer/discopanel:latest         # TODO : figer la version qui tourne (docker inspect discopanel)
+    image: nickheyer/discopanel:v2.0.15        # version figée
     container_name: discopanel
     restart: unless-stopped
 

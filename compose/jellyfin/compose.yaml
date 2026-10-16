@@ -24,7 +24,7 @@ services:
   # VPN — tout le trafic torrent passe par gluetun (ProtonVPN)         #
   # ------------------------------------------------------------------ #
   gluetun:
-    image: qmcgaw/gluetun:v3
+    image: qmcgaw/gluetun:v3.41.3               # version figée
     container_name: gluetun
     cap_add:
       - NET_ADMIN

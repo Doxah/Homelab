@@ -24,6 +24,16 @@ mkdir "$env:APPDATA\sops\age"
 age-keygen -o "$env:APPDATA\sops\age\keys.txt"
 ```
 
+Sur un poste secondaire qui reprend la clé du PC (laptop), ne pas lancer `age-keygen` : copier le `keys.txt` existant au même emplacement.
+
+Éditeur utilisé par `sops` (sinon « no editor available »), défini une fois pour toutes pour l'utilisateur :
+```powershell
+[Environment]::SetEnvironmentVariable("SOPS_EDITOR", "code --wait", "User")
+```
+- Pris en compte dans les **nouveaux** terminaux uniquement ; vérifier avec `$env:SOPS_EDITOR`.
+- `SOPS_EDITOR` est lu avant `EDITOR` : seul SOPS est concerné, pas git.
+- Pour la session en cours seulement : `$env:SOPS_EDITOR = "code --wait"`.
+
 Debian (Mini PC) :
 age est dans les dépôts Debian, **SOPS ne l'est pas** (`apt install sops` échoue) : il s'installe depuis le paquet `.deb` des releases GitHub.
 
@@ -45,6 +55,14 @@ La clé est cherchée dans le `~/.config` de l'utilisateur courant : si elle a �
 
 `age-keygen` affiche la clé publique (`age1...`) : la reporter dans `.sops.yaml`.
 
+### Tester une copie de la clé
+Pour vérifier une sauvegarde de la clé privée (clé USB, autre poste) sans toucher au `keys.txt` habituel, pointer SOPS vers la copie pour la session en cours :
+```powershell
+$env:SOPS_AGE_KEY_FILE = "E:\chemin\vers\keys.txt"
+sops decrypt compose\traefik\secrets.sops.env
+```
+Si les secrets s'affichent en clair, la copie est bonne. Fermer le terminal ensuite : la variable n'existe que dans cette session. Sous Linux : `SOPS_AGE_KEY_FILE=/chemin/keys.txt sops decrypt …`.
+
 ## Utilisation
 ```bash
 sops compose/<stack>/secrets.sops.env      # créer ou modifier (ouvre l'éditeur)
@@ -52,7 +70,7 @@ sops -d compose/<stack>/secrets.sops.env   # afficher en clair
 scripts/compose-up.sh <stack>              # lancer la stack avec ses secrets
 ```
 
-Sous Windows, choisir l'éditeur : `$env:EDITOR = "code --wait"` (ou `notepad`).
+Sous Windows, l'éditeur est défini par `SOPS_EDITOR` (voir Installation).
 
 `scripts/compose-up.sh` utilise `sops exec-env` : les secrets sont passés en variables d'environnement à `docker compose`, sans fichier `.env` en clair sur le disque.
 

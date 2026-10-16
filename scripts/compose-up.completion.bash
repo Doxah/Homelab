@@ -39,4 +39,6 @@ _compose_up() {
 }
 # Enregistré aussi pour les chemins relatifs : bash cherche d'abord une complétion pour le chemin tapé tel quel,
 # et bash-completion y colle sinon une complétion « fichiers » par défaut (_comp_complete_minimal).
-complete -F _compose_up compose-up.sh ./scripts/compose-up.sh scripts/compose-up.sh ./compose-up.sh
+_compose_up_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose-up.sh"
+complete -F _compose_up compose-up.sh ./scripts/compose-up.sh scripts/compose-up.sh ./compose-up.sh "$_compose_up_abs"
+unset _compose_up_abs

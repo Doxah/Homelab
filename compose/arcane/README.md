@@ -14,6 +14,8 @@ Arcane a accès au socket Docker : c'est un accès root sur l'hôte tant que Doc
 Conséquences :
 - l'interface ne doit **jamais** être exposée sur Internet, et sur le réseau local seulement au poste d'admin et au reverse proxy ;
 - protéger le compte Arcane par un mot de passe fort (et l'OIDC/2FA si disponible) ;
+- le processus principal tourne en root (les workers en PUID 1000) : `cap_drop: ALL` et seules les capacités
+  `CHOWN DAC_OVERRIDE FOWNER SETUID SETGID KILL` sont gardées, avec `no-new-privileges` et des limites (2 Go, 2 CPU) ;
 - la vraie correction est Docker rootless (objectif « moindre privilège », étapes 9 et 10).
 
 ## Lancer

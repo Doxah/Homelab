@@ -16,9 +16,16 @@ services:
     container_name: arcane
     restart: unless-stopped
 
+    # Le processus principal tourne en root puis lance ses workers en PUID/PGID (1000) :
+    # il garde seulement les capacités pour changer d'utilisateur et gérer les fichiers des projets.
+    # Le socket appartient à root : aucune capacité n'est nécessaire pour y accéder.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
     security_opt:
       - no-new-privileges:true
+
     mem_limit: 2g
+    cpus: 2.0
     pids_limit: 200
 
     # Publié par Traefik (arcane.<DOMAIN>), postes d'admin uniquement : aucun port publié sur l'hôte.

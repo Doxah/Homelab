@@ -24,4 +24,5 @@ Une base avec mot de passe : ne pas le committer en clair (passer par une variab
 - Le fichier de la CLI s'appelait `database.json` alors que le compose montait `databases.json` : Docker aurait créé un
   **dossier** `databases.json` vide (en root). Renommé en `databases.json`.
 - `TZ` corrigé en `Europe/Paris` (`UTC+2` est inversé en notation POSIX).
-- Exception au moindre privilège : socket Docker (sauvegarde de volumes).
+- Exception au moindre privilège : socket Docker (sauvegarde de volumes) et processus en root.
+  Atténuation : `cap_drop: ALL` (root suffit pour le socket, qui lui appartient), `no-new-privileges`, 512 Mo / 1 CPU.

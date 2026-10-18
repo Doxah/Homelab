@@ -15,6 +15,15 @@ services:
     image: portabase/agent@sha256:991a5a0f3e1b254bb0173d7fb7a330a6df46db27587554429e5a370d8b361c02  # build du 2026-09-26 (digest)
     container_name: portabase-agent
     restart: unless-stopped
+
+    # Tourne en root (app + redis) : root suffit pour le socket (propriétaire root), aucune capacité nécessaire a priori.
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 200
     volumes:
       - ./databases.json:/config/config.json:ro    # liste des bases/volumes à sauvegarder
       - /var/run/docker.sock:/var/run/docker.sock

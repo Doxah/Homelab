@@ -93,6 +93,9 @@ services:
       SLSKD_JWT_KEY: ${SLSKD_JWT_KEY:?secret manquant}               # fixe : sinon déconnexion à chaque redémarrage
       SLSKD_API_KEY: ${SLSKD_API_KEY:?secret manquant}               # clé utilisée par SoulSync
       SLSKD_REMOTE_CONFIGURATION: "false"     # la config ne se modifie pas depuis l'UI/API
+      # IPv6 désactivé sur l'hôte : par défaut Kestrel écoute sur [::] et plante (« Address family not supported »)
+      SLSKD_HTTP_IP_ADDRESS: "0.0.0.0"
+      SLSKD_NO_HTTPS: "true"                  # TLS terminé par Traefik : le HTTPS auto-signé sur 5031 ne sert à rien
       SLSKD_DOWNLOADS_DIR: /app/downloads     # MÊME chemin que dans SoulSync : il retrouve les fichiers via le chemin rapporté par slskd
       SLSKD_SHARED_DIR: /music                 # partager est la règle sur Soulseek (sinon bannissements/files d'attente)
 

@@ -1,7 +1,19 @@
 # Stack Jellyfin (Mini PC)
 
 Jellyfin + Seerr (requêtes) + Radarr / Sonarr / Jackett + Transmission derrière gluetun (ProtonVPN, port forwarding)
-+ Watchtower (mises à jour nocturnes, sauf gluetun et transmission). Détails des chemins NAS en tête de `compose.yaml`.
+(VPN, port forwarding). Détails des chemins NAS en tête de `compose.yaml`.
+Mises à jour : versions figées, proposées par Renovate (Watchtower retiré le 2026-10-18).
+
+## Moindre privilège
+| Conteneur | Réglages | Exception |
+|---|---|---|
+| jellyfin, radarr, sonarr, jackett, transmission | `cap_drop: ALL` + `CHOWN DAC_OVERRIDE FOWNER SETUID SETGID KILL`, `no-new-privileges`, limites | s6 (init linuxserver) démarre en root puis lance l'appli en PUID 1000 ; pas de `read_only` |
+| seerr | non-root (node), `cap_drop: ALL`, `no-new-privileges`, limites | pas de `read_only` (cache Next.js) |
+| gluetun | `NET_ADMIN`, `no-new-privileges`, limites | root + `NET_ADMIN` + `/dev/net/tun` indispensables au tunnel |
+| jellyfin | `/dev/dri` + groupe `render` | transcodage matériel QuickSync |
+
+Vérifier après un changement : `docker top <conteneur> -o pid,user,comm` (l'appli doit tourner en 1000) et `docker logs <conteneur>`.
+Si un conteneur linuxserver ne démarre plus (`Operation not permitted`), rajouter la capacité citée dans `&lsio-caps`.
 
 ## Secrets (`secrets.sops.env`, chiffré)
 `NAS_ROOT`, `NAS_2_ROOT` (montages NAS), `VPN_TYPE`, `OPENVPN_USER` (suffixe `+pmp`), `OPENVPN_PASSWORD`,
@@ -36,6 +48,7 @@ Les applis doivent se joindre par **nom de conteneur**, plus par l'IP du Mini PC
 | Radarr / Sonarr | Connect → Jellyfin | `http://jellyfin:8096` |
 
 ## Points ouverts
-- Images en `latest` + Watchtower : à remplacer par des versions figées + Renovate (objectif git).
-- Watchtower monte le socket Docker en écriture (objectif moindre privilège).
+- Watchtower supprimé (il montait le socket Docker en écriture) : après le déploiement, `docker rm -f watchtower`
+  ou `scripts/compose-up.sh jellyfin up -d --remove-orphans`.
+- gluetun : tester `cap_drop: ALL` avec le minimum de capacités (voir le commentaire dans `compose.yaml`).
 - Transmission sans mot de passe et 9091 publié sur toutes les interfaces : restreindre (pfSense ou `USER`/`PASS`).

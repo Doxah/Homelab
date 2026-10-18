@@ -5,11 +5,17 @@ name: jellyfin-stack
 # Traefik : videos (Jellyfin), demande-videos (Seerr) (LAN) ; radarr, sonarr, jackett (postes d'admin). Les applis se joignent
 # entre elles par le réseau default de la stack (http://jackett:9117, http://gluetun:9091…), plus par l'IP de l'hôte.
 
+# Moindre privilège :
+# - Images linuxserver (transmission, jackett, radarr, sonarr, jellyfin) : s6 démarre en root, crée l'utilisateur
+#   PUID/PGID, fait ses chown puis lance l'appli en 1000. Sans capacités, s6 ne démarre pas : on garde le minimum
+#   (&lsio-caps). Pas de read_only : s6 écrit dans /run et /etc au démarrage.
+# - gluetun : root + NET_ADMIN indispensables pour le tunnel ; seulement no-new-privileges et des limites pour l'instant.
+# - Plus de Watchtower (socket Docker en écriture) : versions figées, mises à jour par Renovate.
 #---------------------------------------------------------------------#
 # Full stack Jellyfin                                                 #
 #                                                                     #
-# Montage clé : ${NAS_ROOT:?secret manquant} (/media/Partage_NAS_4To) est monté en     #
-# /data dans Transmission, Sonarr et Radarr. Les chemins sont donc    #
+# Montage clé : ${NAS_ROOT} (partage du NAS) est monté en /data dans #
+# Transmission, Sonarr et Radarr. Les chemins sont donc               #
 # IDENTIQUES dans tous les conteneurs :                               #
 #   /data/Jellyfin/films          -> bibliothèque films               #
 #   /data/Jellyfin/series         -> bibliothèque séries              #
@@ -28,6 +34,13 @@ services:
     container_name: gluetun
     cap_add:
       - NET_ADMIN
+    security_opt: &nnp
+      - no-new-privileges:true
+    # Piste suivante (à tester seul, la recréation de gluetun casse le port forwardé) :
+    # cap_drop: [ALL] + cap_add: [NET_ADMIN, CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 100
     devices:
       - /dev/net/tun:/dev/net/tun
     # Interface Transmission : publiée sur l'IP LAN seulement, Traefik la sert sur transmission.<DOMAIN>
@@ -59,6 +72,12 @@ services:
   transmission:
     image: lscr.io/linuxserver/transmission:4.1.3-r0-ls354
     container_name: transmission
+    cap_drop: [ALL]
+    cap_add: &lsio-caps [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]   # minimum pour s6 (init linuxserver)
+    security_opt: *nnp
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 300
     network_mode: "service:gluetun" # pas de réseau propre : tout passe par le VPN
     depends_on:
       gluetun:
@@ -81,6 +100,12 @@ services:
   jackett:
     image: lscr.io/linuxserver/jackett:v0.24.2856-ls5
     container_name: jackett
+    cap_drop: [ALL]
+    cap_add: *lsio-caps
+    security_opt: *nnp
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 200
     environment:
       - TZ=Europe/Paris
       - PUID=1000
@@ -101,6 +126,12 @@ services:
   radarr:
     image: lscr.io/linuxserver/radarr:6.4.4.10685-ls321
     container_name: radarr
+    cap_drop: [ALL]
+    cap_add: *lsio-caps
+    security_opt: *nnp
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 300
     environment:
       - TZ=Europe/Paris
       - PUID=1000
@@ -119,6 +150,12 @@ services:
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls328
     container_name: sonarr
+    cap_drop: [ALL]
+    cap_add: *lsio-caps
+    security_opt: *nnp
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 300
     environment:
       - TZ=Europe/Paris
       - PUID=1000
@@ -144,6 +181,12 @@ services:
     image: ghcr.io/seerr-team/seerr:v3.5.0
     init: true
     container_name: seerr
+    # Tourne déjà en non-root (node, UID 1000) : aucune capacité nécessaire
+    cap_drop: [ALL]
+    security_opt: *nnp
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 300
     environment:
       - TZ=Europe/Paris
     volumes:
@@ -164,11 +207,17 @@ services:
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:12.2ubu2604-ls54
     container_name: jellyfin
+    cap_drop: [ALL]
+    cap_add: *lsio-caps
+    security_opt: *nnp
+    mem_limit: 4g
+    cpus: 4.0
+    pids_limit: 1000
     environment:
       - TZ=Europe/Paris
       - PUID=1000
       - PGID=1000
-      # - JELLYFIN_PublishedServerUrl=http://192.168.1.X:8096
+      # - JELLYFIN_PublishedServerUrl=http://<IP du Mini PC>:8096
     volumes:
       - ./config/jellyfin:/config
       - ${NAS_ROOT:?secret manquant}/Jellyfin:/media # /media/films et /media/series
@@ -187,28 +236,6 @@ services:
       - /dev/dri:/dev/dri
     group_add:
       - "105" # GID du groupe 'render' de l'hôte (getent group render) - accès à renderD128
-    restart: unless-stopped
-
-  # ------------------------------------------------------------------ #
-  # Mises à jour automatiques des conteneurs (tous les jours à 01h00)   #
-  # Fork maintenu : containrrr/watchtower est abandonné et incompatible #
-  # avec les Docker récents (client API trop ancien).                   #
-  # gluetun et transmission sont VOLONTAIREMENT exclus (non listés) :   #
-  # leur recréation casse le netns partagé + le port forwardé. On les   #
-  # met à jour à la main (voir README).                                 #
-  # ------------------------------------------------------------------ #
-  watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:1.23.1
-    container_name: watchtower
-    # Ne surveille QUE les conteneurs listés (gluetun/transmission exclus)
-    command: jackett radarr sonarr seerr jellyfin watchtower
-    environment:
-      - TZ=Europe/Paris
-      - WATCHTOWER_CLEANUP=true          # supprime les anciennes images après update
-      - WATCHTOWER_SCHEDULE=0 0 1 * * *   # cron 6 champs : sec min heure * * *  -> 01h00
-      - WATCHTOWER_TIMEOUT=60s
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 networks:

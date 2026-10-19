@@ -1,0 +1,11 @@
+# Modèle de sondes HTTPS (blackbox, module http_2xx) : le service répond en 2xx/3xx et son certificat est valide.
+# Seulement des services SANS lan-admin : depuis le réseau Docker, lan-admin répond 403 avant d'atteindre le service.
+# Ajouter une ligne par nouveau service publié par Traefik.
+- targets:
+    - 'https://vault.${DOMAIN}/alive'
+    - 'https://videos.${DOMAIN}/health'
+    - 'https://demande-videos.${DOMAIN}/api/v1/status'
+    - 'https://glpi.${DOMAIN}/'
+    - 'https://convert.${DOMAIN}/'
+    - 'https://soulsync.${DOMAIN}/'
+    - 'https://ntfy.${DOMAIN}/v1/health'

@@ -1,0 +1,326 @@
+# Supervision du homelab : métriques (Prometheus), journaux (Loki + Alloy), alertes (Alertmanager -> ntfy), tableaux de bord (Grafana).
+# Secrets : secrets.sops.env (Grafana, token ntfy, SNMPv3, IP des cibles, DOCKER_GID) + compose/commun.sops.env (DOMAIN, BIND_IP).
+# Lancement : scripts/compose-up.sh monitoring  (après la stack ntfy : Alertmanager lui envoie les alertes)
+# Données : ./data/{prometheus,alertmanager,grafana,loki,alloy,textfile}, propriétaire 1000:1000. Jamais dans Git. Voir README.md.
+#
+# Principe :
+# - Aucune IP ni domaine dans Git : les cibles sont des modèles (prometheus/cibles/*.yml, alertmanager/alertmanager.yml)
+#   où ${VAR} est remplacé au démarrage par rendre-modeles.sh, en mémoire (tmpfs), à partir des secrets SOPS.
+# - Interfaces web (Grafana, Prometheus, Alertmanager) publiées par Traefik et limitées à lan-admin. Aucun port publié,
+#   sauf node_exporter qui vit dans le réseau de l'hôte (métriques réseau de l'hôte) et n'écoute que sur BIND_IP.
+# - Le socket Docker n'est lu qu'à travers socket-proxy-mon (GET uniquement), par Alloy (journaux) et cAdvisor.
+name: monitoring
+
+x-durci: &durci                                  # options communes de moindre privilège
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+
+services:
+  # ---------------------------------------------------------------- Métriques
+  prometheus:
+    <<: *durci
+    image: prom/prometheus:v3.15.0
+    container_name: prometheus
+    user: "1000:1000"
+    tmpfs:
+      - /tmp                                     # cibles rendues (/tmp/cibles)
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 200
+    # Rend les modèles de cibles puis lance Prometheus (sh et awk viennent de la busybox de l'image)
+    entrypoint: ["/bin/sh", "/usr/local/bin/rendre-modeles.sh", "/etc/prometheus/cibles", "/tmp/cibles", "--", "/bin/prometheus"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=10GB         # garde-fou disque (l'incident NPM venait d'un disque plein)
+      - --web.external-url=https://prometheus.${DOMAIN:?secret manquant}
+      - --web.enable-lifecycle                      # rechargement : curl -X POST http://localhost:9090/-/reload (depuis le conteneur)
+    environment:
+      TZ: Europe/Paris
+      # Variables utilisées par les modèles de prometheus/cibles/
+      DOMAIN: ${DOMAIN:?secret manquant}
+      BIND_IP: ${BIND_IP:?secret manquant}
+      # Équipements : facultatifs pour Compose ; rendre-modeles.sh refuse de démarrer si une cible NON commentée
+      # utilise une variable vide (un NAS retiré se commente dans cibles/, sa variable peut alors disparaître)
+      PFSENSE_IP: ${PFSENSE_IP:-}
+      SWITCH_IP: ${SWITCH_IP:-}
+      SYNO_IP: ${SYNO_IP:-}
+      QNAP_TS259_IP: ${QNAP_TS259_IP:-}
+      QNAP_TS228_IP: ${QNAP_TS228_IP:-}
+    volumes:
+      - ./rendre-modeles.sh:/usr/local/bin/rendre-modeles.sh:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/cibles:/etc/prometheus/cibles:ro
+      - ./prometheus/regles:/etc/prometheus/regles:ro
+      - type: bind
+        source: ./data/prometheus
+        target: /prometheus
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [default, proxy]                    # proxy : interface web via Traefik + scrape de traefik, cloudflared, ntfy
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.prometheus.rule: Host(`prometheus.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.prometheus.middlewares: lan-admin@docker
+      traefik.http.services.prometheus.loadbalancer.server.port: "9090"
+
+  alertmanager:
+    <<: *durci
+    image: prom/alertmanager:v0.34.1
+    container_name: alertmanager
+    user: "1000:1000"
+    tmpfs:
+      - /tmp                                     # configuration rendue (contient le token ntfy, en mémoire seulement)
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 100
+    entrypoint: ["/bin/sh", "/usr/local/bin/rendre-modeles.sh", "/etc/alertmanager/modeles", "/tmp/alertmanager", "--", "/bin/alertmanager"]
+    command:
+      - --config.file=/tmp/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=https://alertmanager.${DOMAIN:?secret manquant}
+      - --cluster.listen-address=                 # instance seule : pas de cluster (ni port 9094 ouvert)
+    environment:
+      TZ: Europe/Paris
+      NTFY_TOKEN_ALERTMANAGER: ${NTFY_TOKEN_ALERTMANAGER:?secret manquant}
+      DOMAIN: ${DOMAIN:?secret manquant}
+    volumes:
+      - ./rendre-modeles.sh:/usr/local/bin/rendre-modeles.sh:ro
+      - ./alertmanager:/etc/alertmanager/modeles:ro
+      - type: bind
+        source: ./data/alertmanager
+        target: /alertmanager
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [default, proxy]                    # proxy : interface web via Traefik + envoi vers http://ntfy:8080
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.alertmanager.rule: Host(`alertmanager.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.alertmanager.middlewares: lan-admin@docker
+      traefik.http.services.alertmanager.loadbalancer.server.port: "9093"
+
+  # Métriques de l'hôte (CPU, RAM, disques, réseau, températures) + fichiers .prom des scripts (collecteur textfile).
+  # Réseau et PID de l'hôte : sinon il ne verrait que les interfaces et processus du conteneur.
+  node-exporter:
+    <<: *durci
+    image: prom/node-exporter:v1.12.1
+    container_name: node-exporter
+    user: "65534:65534"                          # nobody : lire /proc, /sys et faire statfs() ne demande aucun droit
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=${BIND_IP:?secret manquant}:9100   # jamais 0.0.0.0 : seulement l'IP LAN du Mini PC
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/containers/.+)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+      - ./data/textfile:/textfile:ro             # écrit par scripts/vaultwarden-backup.sh
+
+  # Métriques par conteneur (CPU, RAM, réseau, redémarrages). Exception documentée : root (lecture de /var/lib/docker),
+  # mais sans aucune capacité, système de fichiers en lecture seule et API Docker en lecture seule via socket-proxy-mon.
+  cadvisor:
+    <<: *durci
+    image: ghcr.io/google/cadvisor:0.60.6
+    container_name: cadvisor
+    tmpfs:
+      - /tmp
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 100
+    command:
+      - --docker=tcp://socket-proxy-mon:2375
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service
+      - --disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,percpu,process,referenced_memory,resctrl,sched,tcp,udp,perf_event
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks: [default, socket]
+    depends_on: [socket-proxy-mon]
+
+  # SNMP -> Prometheus pour les NAS et le switch. Les identifiants v3 viennent de l'environnement (snmp/homelab.yml).
+  snmp-exporter:
+    <<: *durci
+    image: prom/snmp-exporter:v0.30.1
+    container_name: snmp-exporter
+    user: "65534:65534"
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+    command:
+      - --config.file=/etc/snmp_exporter/snmp.yml           # modules fournis par l'image (synology, if_mib, dlink…)
+      - --config.file=/etc/snmp_exporter/perso/homelab.yml  # auth homelab_v3 + module hr_storage
+      - --config.expand-environment-variables
+      - --snmp.module-concurrency=2
+    environment:
+      SNMP_V3_USER: ${SNMP_V3_USER:?secret manquant}
+      SNMP_V3_AUTH_PASSWORD: ${SNMP_V3_AUTH_PASSWORD:?secret manquant}
+      SNMP_V3_PRIV_PASSWORD: ${SNMP_V3_PRIV_PASSWORD:?secret manquant}
+    volumes:
+      - ./snmp:/etc/snmp_exporter/perso:ro
+
+  # Sondes HTTPS : service joignable + date d'expiration du certificat.
+  blackbox-exporter:
+    <<: *durci
+    image: prom/blackbox-exporter:v0.29.0
+    container_name: blackbox-exporter
+    user: "65534:65534"
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+
+  # ---------------------------------------------------------------- Journaux
+  loki:
+    <<: *durci
+    image: grafana/loki:3.7.8
+    container_name: loki
+    user: "1000:1000"
+    tmpfs:
+      - /tmp
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 200
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - type: bind
+        source: ./data/loki
+        target: /loki
+        bind:
+          create_host_path: false
+
+  # Collecte les journaux de tous les conteneurs (API Docker via socket-proxy-mon) et les envoie à Loki.
+  alloy:
+    <<: *durci
+    image: grafana/alloy:v1.21.0
+    container_name: alloy
+    user: "1000:1000"
+    tmpfs:
+      - /tmp
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 100
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345   # interface de debug et métriques, non publiée
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - type: bind
+        source: ./data/alloy
+        target: /var/lib/alloy/data
+        bind:
+          create_host_path: false
+    networks: [default, socket]
+    depends_on: [loki, socket-proxy-mon]
+
+  # API Docker en lecture seule pour Alloy et cAdvisor (même principe que le socket-proxy de Traefik).
+  socket-proxy-mon:
+    <<: *durci
+    image: wollomatic/socket-proxy:1.13.1
+    container_name: socket-proxy-mon
+    user: "65534:${DOCKER_GID:?secret manquant}"
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+    command:
+      - -loglevel=info
+      - -listenip=0.0.0.0
+      - -allowfrom=alloy,cadvisor                 # seuls ces deux conteneurs
+      - -allowHEAD=/(v1\..{1,2}/)?_ping
+      - -allowGET=/(v1\..{1,2}/)?(_ping|version|info|containers/.*|events.*)
+      - -allowhealthcheck
+      - -watchdoginterval=3600
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    networks: [socket]                            # JAMAIS sur default ni proxy
+
+  # ---------------------------------------------------------------- Tableaux de bord
+  grafana:
+    <<: *durci
+    image: grafana/grafana:13.2.4
+    container_name: grafana
+    user: "1000:1000"
+    tmpfs:
+      - /tmp
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 200
+    environment:
+      TZ: Europe/Paris
+      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN:?secret manquant}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?secret manquant}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?secret manquant}   # pris en compte au 1er démarrage seulement
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Europe/Paris
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana-dashboards:ro
+      - type: bind
+        source: ./data/grafana
+        target: /var/lib/grafana
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [default, proxy]
+    depends_on: [prometheus, loki]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: Host(`grafana.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.grafana.middlewares: lan-admin@docker
+      traefik.http.services.grafana.loadbalancer.server.port: "3000"
+
+networks:
+  default: {}                                     # monitoring_default : échanges internes + accès aux équipements du LAN
+  proxy:
+    external: true                                # créé par la stack traefik
+  socket:
+    internal: true                                # socket-proxy-mon <-> alloy, cadvisor ; sans accès Internet

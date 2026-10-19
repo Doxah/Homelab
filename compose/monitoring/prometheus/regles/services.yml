@@ -1,0 +1,49 @@
+# Alertes sur les services publiés : sondes HTTPS, certificat, Traefik, tunnel Cloudflare.
+groups:
+  - name: services
+    rules:
+      - alert: ServiceInjoignable
+        expr: probe_success{job="https"} == 0
+        for: 5m
+        labels:
+          severity: critique
+        annotations:
+          summary: "{{ $labels.instance }} ne répond plus"
+          description: "Sonde HTTPS en échec depuis 5 minutes (service arrêté, Traefik, DNS ou certificat)."
+
+      - alert: CertificatExpireBientot
+        expr: (probe_ssl_earliest_cert_expiry{job="https"} - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Le certificat de {{ $labels.instance }} expire dans {{ $value | printf \"%.0f\" }} jours"
+          description: "Traefik renouvelle normalement à 30 jours de l'échéance : vérifier le token Cloudflare et les journaux de Traefik."
+
+      - alert: CertificatExpireTresBientot
+        expr: (probe_ssl_earliest_cert_expiry{job="https"} - time()) / 86400 < 5
+        for: 1h
+        labels:
+          severity: critique
+        annotations:
+          summary: "Le certificat de {{ $labels.instance }} expire dans {{ $value | printf \"%.0f\" }} jours"
+
+      - alert: TraefikErreurs5xx
+        expr: |
+          sum by (service) (rate(traefik_service_requests_total{code=~"5.."}[5m]))
+            / sum by (service) (rate(traefik_service_requests_total[5m])) > 0.2
+          and sum by (service) (rate(traefik_service_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "{{ $labels.service }} : {{ $value | humanizePercentage }} de réponses 5xx"
+
+      - alert: TunnelCloudflareCoupe
+        expr: cloudflared_tunnel_ha_connections < 1
+        for: 5m
+        labels:
+          severity: critique
+        annotations:
+          summary: "Le tunnel Cloudflare n'a plus aucune connexion"
+          description: "videos, demande-videos et ntfy ne sont plus joignables depuis Internet."

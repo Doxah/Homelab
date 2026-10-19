@@ -1,0 +1,8 @@
+# Modèle de cibles node_exporter : ${VAR} est remplacé au démarrage (rendre-modeles.sh) par les secrets SOPS.
+# Label « nom » : nom lisible utilisé dans les alertes et les tableaux de bord.
+- targets: ['${BIND_IP}:9100']
+  labels:
+    nom: mini-pc
+- targets: ['${PFSENSE_IP}:9100']       # paquet pfSense « node_exporter » (voir README)
+  labels:
+    nom: pfsense

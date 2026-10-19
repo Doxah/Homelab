@@ -1,0 +1,27 @@
+# Alertes sur la supervision elle-même.
+groups:
+  - name: supervision
+    rules:
+      - alert: NotificationsEnEchec
+        expr: rate(alertmanager_notifications_failed_total[10m]) > 0
+        for: 10m
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Alertmanager n'arrive pas à envoyer vers {{ $labels.integration }}"
+          description: "ntfy arrêté ou token refusé : https://alertmanager.<domaine> et journaux de ntfy."
+
+      - alert: RegleEnEchec
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Une règle d'alerte de Prometheus échoue ({{ $labels.rule_group }})"
+
+      - alert: CollecteSNMPLente
+        expr: scrape_duration_seconds{job=~"snmp-.*"} > 45
+        for: 15m
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "{{ $labels.nom }} : la collecte SNMP prend {{ $value | printf \"%.0f\" }} s (limite 50 s)"

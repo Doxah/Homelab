@@ -1,0 +1,14 @@
+# Modules de sonde du blackbox exporter. Cibles : prometheus/cibles/https.yml.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      follow_redirects: true
+      fail_if_not_ssl: true             # toutes les cibles sont en HTTPS via Traefik
+      valid_status_codes: []            # vide = 2xx
+      tls_config:
+        insecure_skip_verify: false     # un certificat invalide doit faire échouer la sonde

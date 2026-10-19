@@ -1,0 +1,4 @@
+# Modèle de cibles SNMP Synology (modules system, if_mib, synology, hr_storage, ucd_memory).
+- targets: ['${SYNO_IP}']
+  labels:
+    nom: ds216j

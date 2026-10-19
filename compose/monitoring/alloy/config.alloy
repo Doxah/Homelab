@@ -1,0 +1,49 @@
+// Grafana Alloy : collecte les journaux de TOUS les conteneurs Docker du Mini PC et les envoie à Loki.
+// L'API Docker est lue à travers socket-proxy-mon (GET seulement) : Alloy ne peut ni créer ni arrêter de conteneur.
+// Interface de debug (graphe des composants) : docker exec -it alloy wget -qO- http://localhost:12345/-/ready
+
+// Liste des conteneurs, rafraîchie toutes les 30 s
+discovery.docker "conteneurs" {
+  host             = "tcp://socket-proxy-mon:2375"
+  refresh_interval = "30s"
+}
+
+// Labels Loki : peu nombreux et stables (container, stack, service). Le reste se filtre dans la requête LogQL.
+discovery.relabel "conteneurs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "stack"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "flux"
+  }
+}
+
+loki.source.docker "conteneurs" {
+  host             = "tcp://socket-proxy-mon:2375"
+  targets          = discovery.docker.conteneurs.targets
+  relabel_rules    = discovery.relabel.conteneurs.rules
+  refresh_interval = "30s"
+  forward_to       = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    hote = "mini-pc",
+  }
+}

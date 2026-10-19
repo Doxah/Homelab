@@ -1,0 +1,35 @@
+# Alertes sur les conteneurs Docker du Mini PC (métriques cAdvisor).
+groups:
+  - name: conteneurs
+    rules:
+      # Un conteneur vu dans la dernière heure qui n'existe plus (arrêté, crashé, supprimé).
+      # S'éteint seule au bout d'une heure : pour un arrêt volontaire, poser un silence dans Alertmanager.
+      - alert: ConteneurDisparu
+        expr: |
+          max_over_time(container_last_seen{name!=""}[1h]) unless container_last_seen{name!=""}
+        for: 2m
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Le conteneur {{ $labels.name }} ne tourne plus"
+          description: "Vu dans la dernière heure, absent maintenant. Vérifier : scripts/compose-up.sh <stack> ps"
+
+      - alert: ConteneurRedemarreEnBoucle
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 2
+        labels:
+          severity: critique
+        annotations:
+          summary: "Le conteneur {{ $labels.name }} a redémarré {{ $value }} fois en 15 minutes"
+          description: "Lire ses journaux dans Grafana (Explore › Loki, {container=\"{{ $labels.name }}\"})."
+
+      # Tous les conteneurs ont un mem_limit : au-delà, le noyau tue le processus (OOM).
+      - alert: ConteneurProcheLimiteMemoire
+        expr: |
+          container_memory_working_set_bytes{name!=""}
+            / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.9
+        for: 15m
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "{{ $labels.name }} utilise {{ $value | humanizePercentage }} de son mem_limit"
+          description: "Relever mem_limit dans son compose.yaml ou chercher une fuite mémoire."

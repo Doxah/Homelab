@@ -1,0 +1,40 @@
+# Modèle de configuration d'Alertmanager : ${VAR} est remplacé au démarrage (rendre-modeles.sh) dans /tmp/alertmanager,
+# en mémoire. Le token ntfy n'est donc jamais écrit sur le disque ni dans Git.
+# Vérifier après modification : scripts/compose-up.sh monitoring restart alertmanager, puis https://alertmanager.<domaine>/#/status
+route:
+  receiver: ntfy
+  group_by: [alertname, nom, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h                      # une alerte qui dure est rappelée deux fois par jour
+  routes:
+    - matchers: ['severity="critique"']
+      receiver: ntfy-critique
+      repeat_interval: 4h
+
+receivers:
+  # Modèle « alertmanager » intégré à ntfy : titre et message lisibles, envoi aussi à la résolution.
+  - name: ntfy
+    webhook_configs:
+      - url: http://ntfy:8080/homelab-alertes?template=alertmanager&priority=default&tags=warning
+        send_resolved: true
+        http_config:
+          authorization:
+            credentials: ${NTFY_TOKEN_ALERTMANAGER}
+  - name: ntfy-critique
+    webhook_configs:
+      - url: http://ntfy:8080/homelab-alertes?template=alertmanager&priority=urgent&tags=rotating_light
+        send_resolved: true
+        http_config:
+          authorization:
+            credentials: ${NTFY_TOKEN_ALERTMANAGER}
+
+# Une alerte critique masque l'avertissement de même nom sur la même cible (ex. DisquePlein masque DisquePresquePlein)
+inhibit_rules:
+  - source_matchers: ['severity="critique"']
+    target_matchers: ['severity="avertissement"']
+    equal: [nom, instance]
+  # Cible injoignable : inutile de recevoir en plus les alertes qui en découlent sur le même équipement
+  - source_matchers: ['alertname="CibleInjoignable"']
+    target_matchers: ['alertname=~"CollecteSNMPLente|NASEnPanne|ServiceInjoignable"']
+    equal: [nom]

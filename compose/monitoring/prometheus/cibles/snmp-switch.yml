@@ -1,0 +1,6 @@
+# Modèle de cible SNMP du switch D-Link DGS-1210-24P (modules system, if_mib, dlink).
+- targets: ['${SWITCH_IP}']
+  labels:
+    nom: dgs1210
+    # Si le switch ne propose que DES pour le chiffrement SNMPv3, décommenter (auth définie dans snmp/homelab.yml) :
+    __param_auth: homelab_v3_des

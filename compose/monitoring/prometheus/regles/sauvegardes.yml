@@ -1,0 +1,23 @@
+# Alertes sur les sauvegardes. Les scripts écrivent un fichier .prom dans compose/monitoring/data/textfile
+# (lu par node_exporter) à la fin d'une sauvegarde RÉUSSIE ; un échec ne met donc rien à jour et l'alerte part.
+# Métrique : homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="<nom>"}
+groups:
+  - name: sauvegardes
+    rules:
+      - alert: SauvegardeEnRetard
+        expr: time() - homelab_sauvegarde_derniere_reussite_timestamp_seconds > 26 * 3600
+        for: 10m
+        labels:
+          severity: critique
+        annotations:
+          summary: "Pas de sauvegarde {{ $labels.tache }} réussie depuis {{ $value | humanizeDuration }}"
+          description: "Lire ~/backups/{{ $labels.tache }}.log sur le Mini PC (cron 3h15)."
+
+      - alert: SauvegardeVaultwardenInconnue
+        expr: absent(homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="vaultwarden"})
+        for: 30h                               # laisse passer une nuit après la mise en service
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Aucune trace de la sauvegarde Vaultwarden dans la supervision"
+          description: "Le fichier data/textfile/vaultwarden.prom n'existe pas : dossier absent ou script pas à jour."

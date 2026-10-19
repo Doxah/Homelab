@@ -1,0 +1,9 @@
+# Modèle de cibles SNMP QNAP (modules system, if_mib, hr_storage, ucd_memory).
+# Un NAS éteint ou retiré : commenter ses lignes (une ligne commentée peut garder sa variable).
+- targets: ['${QNAP_TS259_IP}']
+  labels:
+    nom: ts259
+    __param_auth: homelab_v3_des
+#- targets: ['${QNAP_TS228_IP}']
+#  labels:
+#    nom: ts228

@@ -1,0 +1,14 @@
+# Tableaux de bord provisionnés depuis compose/monitoring/grafana/dashboards (versionnés dans Git).
+# Une modification faite dans l'interface n'est pas enregistrée : exporter le JSON (Partager › Exporter) et le committer.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    folder: Homelab
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /var/lib/grafana-dashboards
+      foldersFromFilesStructure: false

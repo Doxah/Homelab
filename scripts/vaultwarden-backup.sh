@@ -51,3 +51,21 @@ if [[ -n "${RSYNC_DEST:-}" ]]; then
 else
   echo "ATTENTION : RSYNC_DEST non défini dans secrets.sops.env, aucune copie vers le NAS" >&2
 fi
+
+# Supervision : horodatage de la dernière sauvegarde RÉUSSIE, lu par node_exporter (collecteur textfile, stack monitoring).
+# Écrit seulement ici, après la copie vers le NAS : un échec plus haut (set -e) ne met rien à jour et l'alerte
+# SauvegardeEnRetard part au-delà de 26 h. Dossier absent (stack monitoring pas encore installée) = rien à faire.
+textfile_dir="$stack_dir/../monitoring/data/textfile"
+if [[ -d "$textfile_dir" ]]; then
+  prom_tmp="$(mktemp "$textfile_dir/.vaultwarden.XXXXXX")"
+  cat > "$prom_tmp" <<EOF
+# HELP homelab_sauvegarde_derniere_reussite_timestamp_seconds Horodatage Unix de la dernière sauvegarde réussie.
+# TYPE homelab_sauvegarde_derniere_reussite_timestamp_seconds gauge
+homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="vaultwarden"} $(date +%s)
+# HELP homelab_sauvegarde_taille_octets Taille de la dernière archive de sauvegarde.
+# TYPE homelab_sauvegarde_taille_octets gauge
+homelab_sauvegarde_taille_octets{tache="vaultwarden"} $(stat -c %s "$archive")
+EOF
+  chmod 644 "$prom_tmp"                        # umask 077 plus haut : node_exporter (nobody) doit pouvoir lire
+  mv -f "$prom_tmp" "$textfile_dir/vaultwarden.prom"   # renommage atomique : jamais de fichier à moitié écrit
+fi

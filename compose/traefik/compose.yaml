@@ -37,6 +37,7 @@ services:
       - --global.sendAnonymousUsage=false
       - --log.level=INFO
       - --accesslog=true
+      - --accesslog.format=json                 # journaux d'accès en JSON : filtrables dans Loki ( | json )
 
       # Points d'entrée : HTTP redirige tout vers HTTPS
       - --entrypoints.web.address=:8000
@@ -71,6 +72,12 @@ services:
       - --entrypoints.traefik.address=:8080    # interne : ping (healthcheck), jamais publié
       - --entrypoints.traefik.http.aliasHeadersStrategy=delete
       - --ping=true
+
+      # Métriques Prometheus sur l'entrypoint interne « traefik » (:8080, jamais publié) : lues par la stack monitoring
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entryPoint=traefik
+      - --metrics.prometheus.addServicesLabels=true
+      - --metrics.prometheus.addEntryPointsLabels=true
 
     environment:
       TZ: Europe/Paris

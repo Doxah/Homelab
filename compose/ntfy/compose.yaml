@@ -1,0 +1,76 @@
+# ntfy : notifications push du homelab (alertes de la supervision, scripts de sauvegarde…).
+# Secrets : secrets.sops.env (NTFY_AUTH_USERS, NTFY_AUTH_TOKENS) + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh ntfy
+# Données : ./data (cache.db = messages en attente, user.db = utilisateurs), propriétaire 1000:1000. Jamais dans Git.
+#
+# Accès :
+# - en interne : http://ntfy:8080 sur le réseau proxy (Alertmanager, autres conteneurs) ;
+# - depuis le LAN / VPN : https://ntfy.<DOMAIN> via Traefik ;
+# - depuis le téléphone hors de la maison : nom public ntfy.<DOMAIN> dans le tunnel Cloudflare (voir README).
+# Tout est refusé par défaut (deny-all) : utilisateurs, droits et tokens sont déclarés ici et dans les secrets.
+name: ntfy
+
+services:
+  ntfy:
+    image: binwiederhier/ntfy:v2.32.0          # version figée
+    container_name: ntfy
+    restart: unless-stopped
+    command: serve
+
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 100
+
+    environment:
+      TZ: Europe/Paris
+      NTFY_BASE_URL: https://ntfy.${DOMAIN:?secret manquant}
+      NTFY_LISTEN_HTTP: ":8080"                 # > 1024 : aucune capacité nécessaire
+      NTFY_BEHIND_PROXY: "true"                 # IP réelle du client lue dans X-Forwarded-For (limites de débit)
+      NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+      NTFY_CACHE_DURATION: 72h
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all        # rien sans compte
+      NTFY_ENABLE_LOGIN: "true"                 # connexion à l'interface web
+      NTFY_ENABLE_SIGNUP: "false"
+      NTFY_ATTACHMENT_CACHE_DIR: ""             # pas de pièces jointes
+      NTFY_METRICS_LISTEN_HTTP: ":9090"         # métriques Prometheus, joignables seulement depuis le réseau proxy
+      # Déclaratif : recréés à chaque démarrage à partir des secrets (format <nom>:<hash bcrypt>:<role>)
+      NTFY_AUTH_USERS: ${NTFY_AUTH_USERS:?secret manquant}
+      NTFY_AUTH_TOKENS: ${NTFY_AUTH_TOKENS:?secret manquant}
+      # Droits (pas secrets) : <utilisateur>:<topic>:<rw|ro|wo>. Le compte admin lit tout, sans ligne ici.
+      NTFY_AUTH_ACCESS: alertmanager:homelab-alertes:wo,scripts:homelab-*:wo
+      # iPhone : décommenter pour les notifications instantanées (ntfy.sh ne reçoit que l'identifiant du message)
+      # NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
+
+    volumes:
+      - type: bind
+        source: ./data
+        target: /var/lib/ntfy
+        bind:
+          create_host_path: false               # échec explicite si ./data n'existe pas (au lieu d'un dossier root)
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:8080/v1/health -O - | grep -Eq '\"healthy\" *: *true'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    networks: [proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.ntfy.rule: Host(`ntfy.${DOMAIN:?secret manquant}`)
+      traefik.http.services.ntfy.loadbalancer.server.port: "8080"
+      # Pas de lan-admin : le téléphone doit pouvoir s'abonner depuis l'extérieur. L'authentification est faite par ntfy.
+
+networks:
+  proxy:
+    external: true                              # créé par la stack traefik

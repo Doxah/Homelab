@@ -1,0 +1,119 @@
+# Configuration de Prometheus (homelab). Aucune IP ni domaine ici : les cibles sont dans prometheus/cibles/*.yml,
+# des modèles rendus au démarrage dans /tmp/cibles par rendre-modeles.sh (voir compose.yaml).
+# Les cibles sont relues automatiquement (file_sd) ; un changement de ce fichier ou des règles demande un rechargement :
+#   docker exec prometheus wget -qO- --post-data= http://localhost:9090/-/reload
+# Un changement de cibles/ ou des secrets demande un redémarrage : scripts/compose-up.sh monitoring restart prometheus
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/regles/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # ---------------------------------------------------------------- La supervision elle-même
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: monitoring
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels: {composant: alertmanager}
+      - targets: ['loki:3100']
+        labels: {composant: loki}
+      - targets: ['alloy:12345']
+        labels: {composant: alloy}
+      - targets: ['grafana:3000']
+        labels: {composant: grafana}
+      - targets: ['snmp-exporter:9116']
+        labels: {composant: snmp-exporter}
+      - targets: ['blackbox-exporter:9115']
+        labels: {composant: blackbox-exporter}
+
+  # ---------------------------------------------------------------- Hôtes (node_exporter : Mini PC, pfSense)
+  - job_name: node
+    file_sd_configs:
+      - files: ['/tmp/cibles/node.yml']
+
+  # ---------------------------------------------------------------- Conteneurs et services Docker du Mini PC
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: traefik                    # --metrics.prometheus sur l'entrypoint interne « traefik » (:8080, non publié)
+    static_configs:
+      - targets: ['traefik:8080']
+
+  - job_name: cloudflared                # --metrics 0.0.0.0:2000 (compose/cloudflared)
+    static_configs:
+      - targets: ['cloudflared:2000']
+
+  - job_name: ntfy                       # NTFY_METRICS_LISTEN_HTTP=:9090 (compose/ntfy)
+    static_configs:
+      - targets: ['ntfy:9090']
+
+  # ---------------------------------------------------------------- SNMP (NAS, switch) via snmp-exporter
+  # La cible réelle passe en paramètre ?target= ; Prometheus interroge snmp-exporter:9116.
+  # Paramètres par cible possibles dans cibles/*.yml : __param_auth, __param_module.
+  - job_name: snmp-synology
+    scrape_interval: 1m
+    scrape_timeout: 50s                  # le DS216J est lent à parcourir
+    metrics_path: /snmp
+    params:
+      auth: [homelab_v3]
+      module: [system, if_mib, synology, hr_storage, ucd_memory]
+    file_sd_configs:
+      - files: ['/tmp/cibles/snmp-synology.yml']
+    relabel_configs: &snmp_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: snmp-exporter:9116
+
+  - job_name: snmp-qnap
+    scrape_interval: 1m
+    scrape_timeout: 50s
+    metrics_path: /snmp
+    params:
+      auth: [homelab_v3]
+      module: [system, if_mib, hr_storage, ucd_memory]
+    file_sd_configs:
+      - files: ['/tmp/cibles/snmp-qnap.yml']
+    relabel_configs: *snmp_relabel
+
+  - job_name: snmp-switch
+    scrape_interval: 1m
+    scrape_timeout: 30s
+    metrics_path: /snmp
+    params:
+      auth: [homelab_v3]
+      module: [system, if_mib, dlink]
+    file_sd_configs:
+      - files: ['/tmp/cibles/snmp-switch.yml']
+    relabel_configs: *snmp_relabel
+
+  # ---------------------------------------------------------------- Sondes HTTPS (blackbox) : service + certificat
+  - job_name: https
+    scrape_interval: 1m
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    file_sd_configs:
+      - files: ['/tmp/cibles/https.yml']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

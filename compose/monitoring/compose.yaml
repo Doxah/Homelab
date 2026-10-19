@@ -229,7 +229,7 @@ services:
     pids_limit: 100
     command:
       - run
-      - --storage.path=/var/lib/alloy/data
+      - --storage.path=/alloy-data               # hors de /var/lib/alloy : ce dossier de l'image n'est pas traversable par 1000:1000
       - --server.http.listen-addr=0.0.0.0:12345   # interface de debug et métriques, non publiée
       - --disable-reporting
       - /etc/alloy/config.alloy
@@ -237,7 +237,7 @@ services:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - type: bind
         source: ./data/alloy
-        target: /var/lib/alloy/data
+        target: /alloy-data
         bind:
           create_host_path: false
     networks: [default, socket]

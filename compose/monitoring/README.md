@@ -113,8 +113,8 @@ Puis dans le navigateur (depuis le LAN admin ou le VPN) :
 
 ### Tester la chaîne d'alerte
 ```bash
-docker exec alertmanager amtool alert add TestHomelab severity=avertissement nom=test \
-  --annotation=summary="Test de la chaîne d'alerte" --alertmanager.url=http://localhost:9093
+docker exec alertmanager amtool alert add alertname=TestHomelab severity=avertissement nom=test \
+  --annotation='summary="Test de la chaine d alerte"' --alertmanager.url=http://localhost:9093
 ```
 La notification arrive sur `homelab-alertes` dans les 30 s, puis « résolue » au bout de 5 min environ.
 

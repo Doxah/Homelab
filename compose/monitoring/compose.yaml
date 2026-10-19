@@ -257,7 +257,7 @@ services:
       - -listenip=0.0.0.0
       - -allowfrom=alloy,cadvisor                 # seuls ces deux conteneurs
       - -allowHEAD=/(v1\..{1,2}/)?_ping
-      - -allowGET=/(v1\..{1,2}/)?(_ping|version|info|containers/.*|events.*)
+      - -allowGET=/(v1\..{1,2}/)?(_ping|version|info|containers/.*|events.*|networks.*)   # networks : labels réseau de discovery.docker (Alloy)
       - -allowhealthcheck
       - -watchdoginterval=3600
       - -stoponwatchdog

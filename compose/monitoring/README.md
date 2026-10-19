@@ -66,6 +66,8 @@ ou `secret manquant` (Compose). Un NAS retiré : commenter ses lignes dans `prom
 ### pfSense : node_exporter
 1. *System › Package Manager › Available Packages* : installer **node_exporter**.
 2. *Services › node_exporter* : activer, interface d'écoute = **DATACENTER** uniquement (jamais WAN), port 9100.
+   Collecteurs : seulement ceux marqués `(*)` (+ `devstat`, `ntp`). `buddyinfo`, `runit`, `supervisord` sont propres à Linux :
+   cochés, le service ne démarre pas, sans message dans l'interface. Après *Save*, le démarrer dans *Status › Services*.
 3. Règle pare-feu sur DATACENTER : source Mini PC → *This firewall* TCP 9100 (avec les règles proposées dans `private/regles-pfsense-proposees.md`).
 4. Test depuis le Mini PC : `curl -s http://<PFSENSE_IP>:9100/metrics | head`.
 
@@ -154,6 +156,7 @@ la RAM et le réseau sont suivis (la MIB QNAP n'est pas dans le `snmp.yml` de l'
 | `permission denied` sur `/prometheus`, `/loki`, `/var/lib/grafana` | Dossier `data/…` absent ou en root : `ls -ln data`, recréer en 1000:1000 |
 | Prometheus redémarre avec `ERREUR : variable … absente` | Secret manquant ou vide dans `secrets.sops.env` |
 | Cible `mini-pc` (9100) `context deadline exceeded`, mais `curl` OK depuis l'hôte | Règle ufw `br-monitoring` absente (voir Pare-feu) |
+| Cible `pfsense` (9100) en timeout, aucun blocage dans les journaux | node_exporter arrêté sur pfSense : *Diagnostics › Command Prompt* `sockstat -4l \| grep 9100` ; retirer les collecteurs Linux et démarrer le service |
 | Cible SNMP `context deadline exceeded` | Pare-feu UDP 161, SNMPv3 non activé, ou mauvais protocole de chiffrement (essayer `homelab_v3_des`) |
 | Cible SNMP `wrong digest` / `unknown user name` | Utilisateur ou mot de passe SNMPv3 différent sur l'équipement |
 | `cadvisor` : `permission denied` sur `/var/lib/docker/...` | Ajouter `cap_add: [DAC_READ_SEARCH]` au service et le noter ici |

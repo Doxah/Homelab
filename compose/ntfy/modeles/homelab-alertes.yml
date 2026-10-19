@@ -1,0 +1,40 @@
+# Modèle ntfy pour les alertes d'Alertmanager (topic homelab-alertes, URL : ...?template=homelab-alertes).
+# Monté dans /etc/ntfy/templates (template-dir par défaut). Syntaxe : Go template + fonctions Sprig de ntfy.
+#   Titre   : pastille de statut + nom de l'appareil
+#   Message : statut (sévérité, heure, durée), puis la description de chaque alerte du groupe
+#   Priorité : 5 (urgente) si critique, 3 si avertissement, 2 à la résolution
+# Noms lisibles : dictionnaire $noms ci-dessous, clé = label « nom » des cibles (prometheus/cibles/*.yml).
+
+title: |
+  {{- $l := (first .alerts).labels -}}
+  {{- $noms := dict "mini-pc" "Mini PC" "pfsense" "pfSense" "ds216j" "Synology DS216J" "ts259" "QNAP TS-259 Pro+" "ts228" "QNAP TS-228" "dgs1210" "Switch D-Link DGS-1210" -}}
+  {{- $url := regexReplaceAll "^https?://([^/:]+).*$" (toString (default "" $l.instance)) "${1}" -}}
+  {{- $cle := coalesce $l.nom $l.name $url $l.job "homelab" -}}
+  {{- $appareil := default $cle (get $noms (toString $cle)) -}}
+  {{- if eq .status "resolved" }}✅{{ else if eq (toString $l.severity) "critique" }}🔴{{ else }}🟠{{ end }} {{ $appareil }}
+
+message: |
+  {{- $l := (first .alerts).labels -}}
+  {{- if eq .status "resolved" -}}
+  Résolu
+  {{- else -}}
+  {{ if eq (toString $l.severity) "critique" }}Critique{{ else }}Avertissement{{ end }} · en cours
+  {{- end }}
+  {{- range .alerts }}
+  {{- $debut := toDate "2006-01-02T15:04:05Z07:00" .startsAt }}
+
+  ▸ {{ default .labels.alertname .annotations.summary }}
+  {{- with .annotations.description }}
+  {{ . }}
+  {{- end }}
+  {{- if eq .status "resolved" }}
+  {{- $fin := toDate "2006-01-02T15:04:05Z07:00" .endsAt }}
+  {{- $s := sub (atoi (unixEpoch $fin)) (atoi (unixEpoch $debut)) }}
+  Du {{ dateInZone "02/01 15:04" $debut "Europe/Paris" }} au {{ dateInZone "02/01 15:04" $fin "Europe/Paris" }} · {{ if lt $s 3600 }}{{ max 1 (div $s 60) }} min{{ else }}{{ div $s 3600 }} h {{ printf "%02d" (mod (div $s 60) 60) }}{{ end }}
+  {{- else }}
+  Depuis le {{ dateInZone "02/01 à 15:04" $debut "Europe/Paris" }}
+  {{- end }}
+  {{- end }}
+
+priority: |
+  {{- if eq .status "resolved" }}2{{ else if eq (toString (first .alerts).labels.severity) "critique" }}5{{ else }}3{{ end }}

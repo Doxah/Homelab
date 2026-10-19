@@ -18,6 +18,28 @@ Internet ──► Cloudflare (tunnel) ──► Traefik ───────�
 | Comptes | Déclaratifs (`NTFY_AUTH_USERS`, `NTFY_AUTH_TOKENS`, `NTFY_AUTH_ACCESS`) | Recréés à chaque démarrage depuis Git + SOPS : rien à refaire à la main après une réinstallation |
 | Topics | `homelab-alertes` (Alertmanager), `homelab-sauvegardes` (scripts) | Préfixe `homelab-` : un seul droit `scripts:homelab-*:wo` |
 
+## Présentation des alertes
+Modèle [`modeles/homelab-alertes.yml`](modeles/homelab-alertes.yml), monté dans `/etc/ntfy/templates` et appelé par Alertmanager
+avec `?template=homelab-alertes` :
+```
+🔴 Synology DS216J                                   ← pastille (🔴 critique, 🟠 avertissement, ✅ résolu) + appareil
+Critique · en cours                                  ← statut
+▸ Le volume Volume 1 est dégradé ou planté (code 11) ← résumé de l'alerte
+Un disque est probablement mort : le remplacer…      ← description
+Depuis le 20/10 à 10:12                              ← à la résolution : « Du … au … · durée »
+```
+- Appareil = label `nom` de la cible, traduit en nom lisible par le dictionnaire `$noms` du modèle ; à défaut le conteneur
+  (`name`), l'hôte de la sonde HTTPS, puis le job. Un nouvel équipement : ajouter sa paire `"nom" "Nom lisible"` dans `$noms`.
+- Priorité calculée par le modèle : 5 (urgente) si critique, 3 si avertissement, 2 à la résolution.
+- Le résumé des règles ne répète donc plus l'appareil (`prometheus/regles/*.yml`).
+- Après une modification du modèle : `scripts/compose-up.sh ntfy up -d --force-recreate`, puis une fausse alerte
+  qui traverse toute la chaîne (résolue automatiquement au bout de 5 min) :
+  ```bash
+  docker exec alertmanager amtool alert add alertname=TestHomelab severity=critique nom=ds216j \
+    --annotation='summary="Test du modele de notification"' --alertmanager.url=http://localhost:9093
+  ```
+  Un modèle invalide fait répondre ntfy en 400 : `NotificationsEnEchec` se déclenche et `docker logs ntfy` donne la ligne fautive.
+
 ## Comptes
 | Compte | Rôle | Droits | Utilisé par |
 |---|---|---|---|

@@ -51,6 +51,7 @@ services:
       # NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
 
     volumes:
+      - ./modeles:/etc/ntfy/templates:ro      # modèles de messages (?template=homelab-alertes)
       - type: bind
         source: ./data
         target: /var/lib/ntfy

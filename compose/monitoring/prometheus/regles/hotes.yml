@@ -9,7 +9,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.job }} {{ with $labels.nom }}{{ . }}{{ else }}{{ $labels.instance }}{{ end }} ne répond plus"
+          summary: "Ne répond plus (collecte {{ $labels.job }})"
           description: "Prometheus n'arrive plus à interroger {{ $labels.instance }} (job {{ $labels.job }}) depuis 5 minutes."
 
       - alert: DisquePresquePlein
@@ -20,7 +20,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : {{ $labels.mountpoint }} rempli à {{ $value | printf \"%.0f\" }} %"
+          summary: "Disque {{ $labels.mountpoint }} rempli à {{ $value | printf \"%.0f\" }} %"
           description: "Faire de la place avant 95 % (l'incident NPM venait d'un disque plein)."
 
       - alert: DisquePlein
@@ -31,7 +31,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.nom }} : {{ $labels.mountpoint }} rempli à {{ $value | printf \"%.0f\" }} %"
+          summary: "Disque {{ $labels.mountpoint }} rempli à {{ $value | printf \"%.0f\" }} %"
 
       - alert: DisquePleinDans24h
         expr: |
@@ -41,7 +41,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : {{ $labels.mountpoint }} sera plein dans moins de 24 h au rythme actuel"
+          summary: "Disque {{ $labels.mountpoint }} plein dans moins de 24 h au rythme actuel"
 
       - alert: MemoireFaible
         expr: 100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10
@@ -49,7 +49,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : seulement {{ $value | printf \"%.0f\" }} % de RAM disponible"
+          summary: "Seulement {{ $value | printf \"%.0f\" }} % de RAM disponible"
 
       - alert: ProcesseurSature
         expr: 100 * (1 - avg by (nom, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 90
@@ -57,7 +57,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : processeur à {{ $value | printf \"%.0f\" }} % depuis 15 minutes"
+          summary: "Processeur à {{ $value | printf \"%.0f\" }} % depuis 15 minutes"
 
       - alert: TemperatureElevee
         expr: node_hwmon_temp_celsius > 85
@@ -65,11 +65,11 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : capteur {{ $labels.chip }}/{{ $labels.sensor }} à {{ $value | printf \"%.0f\" }} °C"
+          summary: "Capteur {{ $labels.chip }}/{{ $labels.sensor }} à {{ $value | printf \"%.0f\" }} °C"
 
       - alert: HoteRedemarre
         expr: (time() - node_boot_time_seconds) < 600
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} a redémarré il y a moins de 10 minutes"
+          summary: "A redémarré il y a moins de 10 minutes"

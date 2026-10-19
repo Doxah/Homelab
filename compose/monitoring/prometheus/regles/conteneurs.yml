@@ -11,7 +11,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "Le conteneur {{ $labels.name }} ne tourne plus"
+          summary: "Le conteneur ne tourne plus"
           description: "Vu dans la dernière heure, absent maintenant. Vérifier : scripts/compose-up.sh <stack> ps"
 
       - alert: ConteneurRedemarreEnBoucle
@@ -19,7 +19,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "Le conteneur {{ $labels.name }} a redémarré {{ $value }} fois en 15 minutes"
+          summary: "Redémarré {{ $value }} fois en 15 minutes"
           description: "Lire ses journaux dans Grafana (Explore › Loki, {container=\"{{ $labels.name }}\"})."
 
       # Tous les conteneurs ont un mem_limit : au-delà, le noyau tue le processus (OOM).
@@ -31,5 +31,5 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.name }} utilise {{ $value | humanizePercentage }} de son mem_limit"
+          summary: "Utilise {{ $value | humanizePercentage }} de son mem_limit"
           description: "Relever mem_limit dans son compose.yaml ou chercher une fuite mémoire."

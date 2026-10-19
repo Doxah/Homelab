@@ -24,4 +24,4 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : la collecte SNMP prend {{ $value | printf \"%.0f\" }} s (limite 50 s)"
+          summary: "La collecte SNMP prend {{ $value | printf \"%.0f\" }} s (limite 50 s)"

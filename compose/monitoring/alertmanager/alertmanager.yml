@@ -13,17 +13,18 @@ route:
       repeat_interval: 4h
 
 receivers:
-  # Modèle « alertmanager » intégré à ntfy : titre et message lisibles, envoi aussi à la résolution.
+  # Modèle maison compose/ntfy/modeles/homelab-alertes.yml : titre = appareil, puis statut et description.
+  # La priorité (5 critique, 3 avertissement, 2 résolu) est calculée par le modèle.
   - name: ntfy
     webhook_configs:
-      - url: http://ntfy:8080/homelab-alertes?template=alertmanager&priority=default&tags=warning
+      - url: http://ntfy:8080/homelab-alertes?template=homelab-alertes
         send_resolved: true
         http_config:
           authorization:
             credentials: ${NTFY_TOKEN_ALERTMANAGER}
   - name: ntfy-critique
     webhook_configs:
-      - url: http://ntfy:8080/homelab-alertes?template=alertmanager&priority=urgent&tags=rotating_light
+      - url: http://ntfy:8080/homelab-alertes?template=homelab-alertes
         send_resolved: true
         http_config:
           authorization:

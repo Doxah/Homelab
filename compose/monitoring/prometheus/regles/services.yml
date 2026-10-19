@@ -8,7 +8,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.instance }} ne répond plus"
+          summary: "Ne répond plus ({{ $labels.instance }})"
           description: "Sonde HTTPS en échec depuis 5 minutes (service arrêté, Traefik, DNS ou certificat)."
 
       - alert: CertificatExpireBientot
@@ -17,7 +17,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "Le certificat de {{ $labels.instance }} expire dans {{ $value | printf \"%.0f\" }} jours"
+          summary: "Le certificat expire dans {{ $value | printf \"%.0f\" }} jours"
           description: "Traefik renouvelle normalement à 30 jours de l'échéance : vérifier le token Cloudflare et les journaux de Traefik."
 
       - alert: CertificatExpireTresBientot
@@ -26,7 +26,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "Le certificat de {{ $labels.instance }} expire dans {{ $value | printf \"%.0f\" }} jours"
+          summary: "Le certificat expire dans {{ $value | printf \"%.0f\" }} jours"
 
       - alert: TraefikErreurs5xx
         expr: |

@@ -11,7 +11,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.nom }} signale une panne système ou d'alimentation"
+          summary: "Signale une panne système ou d'alimentation"
 
       - alert: RAIDDegrade
         expr: raidStatus{job="snmp-synology"} >= 11
@@ -19,7 +19,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.nom }} : le volume {{ $labels.raidName }} est dégradé ou planté (code {{ $value }})"
+          summary: "Le volume {{ $labels.raidName }} est dégradé ou planté (code {{ $value }})"
           description: "Un disque est probablement mort : le remplacer avant qu'un second lâche."
 
       - alert: RAIDPasNormal
@@ -28,7 +28,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : le volume {{ $labels.raidName }} n'est pas revenu à l'état normal depuis 12 h (code {{ $value }})"
+          summary: "Le volume {{ $labels.raidName }} n'est pas revenu à l'état normal depuis 12 h (code {{ $value }})"
 
       - alert: DisqueNASDefaillant
         expr: diskStatus{job="snmp-synology"} >= 4
@@ -36,7 +36,7 @@ groups:
         labels:
           severity: critique
         annotations:
-          summary: "{{ $labels.nom }} : le disque {{ $labels.diskID }} est en échec (code {{ $value }})"
+          summary: "Le disque {{ $labels.diskID }} est en échec (code {{ $value }})"
 
       - alert: DisqueNASChaud
         expr: diskTemperature{job="snmp-synology"} > 50
@@ -44,7 +44,7 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : le disque {{ $labels.diskID }} est à {{ $value }} °C"
+          summary: "Le disque {{ $labels.diskID }} est à {{ $value }} °C"
 
       # Volumes de données des NAS (HOST-RESOURCES-MIB, module hr_storage de snmp/homelab.yml)
       - alert: VolumeNASPresquePlein
@@ -55,4 +55,4 @@ groups:
         labels:
           severity: avertissement
         annotations:
-          summary: "{{ $labels.nom }} : {{ $labels.hrStorageDescr }} rempli à {{ $value | printf \"%.0f\" }} %"
+          summary: "Volume {{ $labels.hrStorageDescr }} rempli à {{ $value | printf \"%.0f\" }} %"

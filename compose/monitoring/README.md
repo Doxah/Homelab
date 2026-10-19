@@ -84,6 +84,12 @@ puis l'utilisateur v3 (SHA + AES/DES). Désactiver les communautés `public`/`pr
 astuce `__param_auth: homelab_v3_des` dans `prometheus/cibles/snmp-switch.yml`.
 
 ### Pare-feu
+**ufw sur le Mini PC** (politique `deny incoming`) : node_exporter écoute sur l'hôte, pas dans un conteneur, donc Prometheus
+passe par la chaîne INPUT et il faut l'autoriser. L'interface du réseau de la stack a un nom fixe (`br-monitoring`) :
+```bash
+sudo ufw allow in on br-monitoring to any port 9100 proto tcp comment 'Prometheus -> node_exporter'
+```
+
 Depuis le Mini PC : UDP 161 vers les NAS (VLAN NAS) et le switch, TCP 9100 vers pfSense. Aujourd'hui tout passe (règles `pass any`),
 à reprendre avec l'étape proxy.8 / base.6.
 
@@ -147,6 +153,7 @@ la RAM et le réseau sont suivis (la MIB QNAP n'est pas dans le `snmp.yml` de l'
 |---|---|
 | `permission denied` sur `/prometheus`, `/loki`, `/var/lib/grafana` | Dossier `data/…` absent ou en root : `ls -ln data`, recréer en 1000:1000 |
 | Prometheus redémarre avec `ERREUR : variable … absente` | Secret manquant ou vide dans `secrets.sops.env` |
+| Cible `mini-pc` (9100) `context deadline exceeded`, mais `curl` OK depuis l'hôte | Règle ufw `br-monitoring` absente (voir Pare-feu) |
 | Cible SNMP `context deadline exceeded` | Pare-feu UDP 161, SNMPv3 non activé, ou mauvais protocole de chiffrement (essayer `homelab_v3_des`) |
 | Cible SNMP `wrong digest` / `unknown user name` | Utilisateur ou mot de passe SNMPv3 différent sur l'équipement |
 | `cadvisor` : `permission denied` sur `/var/lib/docker/...` | Ajouter `cap_add: [DAC_READ_SEARCH]` au service et le noter ici |

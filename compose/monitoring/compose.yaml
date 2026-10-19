@@ -319,7 +319,9 @@ services:
       traefik.http.services.grafana.loadbalancer.server.port: "3000"
 
 networks:
-  default: {}                                     # monitoring_default : échanges internes + accès aux équipements du LAN
+  default:                                        # monitoring_default : échanges internes + accès aux équipements du LAN
+    driver_opts:
+      com.docker.network.bridge.name: br-monitoring   # nom d'interface fixe : la règle ufw vers node_exporter (9100) s'appuie dessus
   proxy:
     external: true                                # créé par la stack traefik
   socket:

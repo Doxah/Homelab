@@ -1,5 +1,5 @@
 # DiscoPanel — panel de gestion des serveurs Minecraft (https://github.com/nickheyer/discopanel)
-# Secrets : secrets.sops.env (DISCOPANEL_HOST_DATA_PATH) + compose/commun.sops.env (DOMAIN).
+# Secrets : secrets.sops.env (DISCOPANEL_HOST_DATA_PATH) + compose/commun.sops.env (DOMAIN, BIND_IP).
 # Lancement : scripts/compose-up.sh discopanel
 # Interface publiée par Traefik (disco.<DOMAIN>), postes d'admin uniquement : le port 8080 n'est plus publié.
 # Les ports Minecraft restent publiés : ce n'est pas du HTTP, Traefik ne s'en occupe pas.
@@ -14,9 +14,22 @@ services:
     container_name: discopanel
     restart: unless-stopped
 
+    # Tourne en root (socket Docker). Root n'a besoin d'aucune capacité pour le socket (il lui appartient) ;
+    # DAC_OVERRIDE/CHOWN/FOWNER : gérer les fichiers des serveurs, créés en UID 1000 par les conteneurs itzg.
+    # Si une action du panel échoue (« permission denied » / « operation not permitted ») : docker logs discopanel.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 512m                            # le panel seul ; la RAM des serveurs Minecraft se règle dans DiscoPanel
+    cpus: 1.0
+    pids_limit: 200
+
+    # Publiés sur l'IP LAN du Mini PC seulement (la redirection WAN de pfSense pointe vers cette IP)
     ports:
-      - "25565:25565"                          # Minecraft / proxy Minecraft par nom d'hôte
-      - "25565-25665:25565-25665/udp"          # UDP (certaines fonctions Minecraft)
+      - "${BIND_IP:?secret manquant}:25565:25565"                  # Minecraft / proxy Minecraft par nom d'hôte
+      - "${BIND_IP:?secret manquant}:25565-25665:25565-25665/udp"  # UDP (certaines fonctions Minecraft)
     #   - "25565-25665:25565-25665/tcp"        # ports supplémentaires si besoin
 
     networks: [default, proxy]

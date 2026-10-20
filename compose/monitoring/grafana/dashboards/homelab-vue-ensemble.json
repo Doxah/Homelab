@@ -1141,7 +1141,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{container=~\".+\"} |~ \"(?i)(error|erreur|fatal|panic|critical)\"",
+          "expr": "{container=~\"$conteneur\"} |~ \"(?i)(error|erreur|fatal|panic|critical)\" | line_format `{{ printf \"%-24s\" .container }} │ {{ __line__ }}`",
           "refId": "A"
         }
       ],
@@ -1154,12 +1154,48 @@
         "wrapLogMessage": true,
         "sortOrder": "Descending",
         "enableLogDetails": true,
-        "dedupStrategy": "signature"
-      }
+        "dedupStrategy": "signature",
+        "showLabels": false,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "description": "Lignes contenant error / erreur / fatal / panic / critical. Le nom du conteneur est ajouté en tête de ligne ; filtrer avec la liste « Conteneur » en haut du tableau de bord."
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "conteneur",
+        "label": "Conteneur",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": {
+          "type": 1,
+          "label": "container",
+          "stream": "",
+          "refId": "conteneur"
+        },
+        "definition": "label_values(container)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
     "list": []

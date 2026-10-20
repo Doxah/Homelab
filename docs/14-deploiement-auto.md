@@ -57,8 +57,18 @@ Zero Trust → Networks → Tunnels → *homelab* → Public Hostname → Add : 
 service `HTTPS` — `traefik:8443`, *Origin Server Name* = `deploiement.<domaine>` (comme les autres noms).
 Ne pas le mettre derrière Cloudflare Access : GitHub ne sait pas s'y authentifier.
 
-Optionnel (défense en profondeur) : règle WAF qui bloque `deploiement.<domaine>` si l'IP n'est pas dans les plages `hooks` de GitHub
-(`https://api.github.com/meta`).
+Règle WAF (défense en profondeur) : Security → WAF → Custom rules → Create rule, nom `Webhook GitHub uniquement`,
+*Edit expression*, action **Block**, à placer **en premier** :
+```
+(http.host eq "deploiement.<domaine>" and (
+  not ip.src in {9.234.106.48/28 9.234.98.160/28 9.234.98.176/28 192.30.252.0/22 185.199.108.0/22
+                 140.82.112.0/20 143.55.64.0/20 2a0a:a440::/29 2606:50c0::/32}
+  or http.request.method ne "POST"
+  or http.request.uri.path ne "/hooks/homelab"))
+```
+Plages = clé `hooks` de `https://api.github.com/meta` (relevées en octobre 2026). GitHub les change parfois : en cas de 403
+dans *Recent Deliveries* avec une page Cloudflare, comparer avec `curl -s https://api.github.com/meta | jq .hooks`
+et Security → Events. Plus tard : la gérer avec le provider Terraform `cloudflare/cloudflare` (objectif tf).
 
 ### 4. GitHub
 Dépôt → Settings → Webhooks → Add webhook :

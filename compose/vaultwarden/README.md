@@ -41,6 +41,10 @@ cd ../.. && scripts/compose-up.sh vaultwarden
 ```
 
 ## Sauvegarde
+**Depuis 2026-10 : [Backrest](../backrest/README.md)**, plan `vaultwarden` (5h, conteneur arrêté pendant la copie, rétention 30 j / 8 sem / 12 mois).
+Le script ci-dessous tourne encore en parallèle jusqu'au premier test de restauration depuis Backrest, puis sera retiré
+(voir « Retrait de l'ancien script Vaultwarden » dans le README de Backrest).
+
 Ne jamais copier `db.sqlite3` à chaud : les modifications récentes sont dans `db.sqlite3-wal` tant qu'il n'y a pas eu de checkpoint
 (constaté sur le CT : `db.sqlite3` vieux de deux semaines, WAL de 3 Mo). On utilise `sqlite3 .backup`, qui produit une base complète et cohérente.
 

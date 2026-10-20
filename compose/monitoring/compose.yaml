@@ -132,7 +132,7 @@ services:
       - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/containers/.+)($$|/)
     volumes:
       - /:/host:ro,rslave
-      - ./data/textfile:/textfile:ro             # écrit par scripts/vaultwarden-backup.sh
+      - ./data/textfile:/textfile:ro             # écrit par scripts/vaultwarden-backup.sh, deploiement-auto.sh et Backrest
 
   # Métriques par conteneur (CPU, RAM, réseau, redémarrages). Exception documentée : root (lecture de /var/lib/docker),
   # mais sans aucune capacité, système de fichiers en lecture seule et API Docker en lecture seule via socket-proxy-mon.

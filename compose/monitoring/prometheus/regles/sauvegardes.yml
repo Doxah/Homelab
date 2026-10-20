@@ -1,6 +1,8 @@
-# Alertes sur les sauvegardes. Les scripts écrivent un fichier .prom dans compose/monitoring/data/textfile
+# Alertes sur les sauvegardes. Les scripts et les hooks de Backrest écrivent un fichier .prom dans compose/monitoring/data/textfile
 # (lu par node_exporter) à la fin d'une sauvegarde RÉUSSIE ; un échec ne met donc rien à jour et l'alerte part.
 # Métrique : homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="<nom>"}
+#   - scripts (cron)          : tache=<nom du script>, ex. vaultwarden
+#   - Backrest (un fichier par plan, backrest-<plan>.prom) : tache=<plan>, outil="backrest"
 groups:
   - name: sauvegardes
     rules:
@@ -11,7 +13,9 @@ groups:
           severity: critique
         annotations:
           summary: "Pas de sauvegarde {{ $labels.tache }} réussie depuis {{ $value | humanizeDuration }}"
-          description: "Lire ~/backups/{{ $labels.tache }}.log sur le Mini PC (cron 3h15)."
+          description: >-
+            {{ if eq $labels.outil "backrest" }}Backrest, plan {{ $labels.tache }} : historique des opérations dans l'interface (backrest.<domaine>).
+            Plan supprimé : effacer backrest-{{ $labels.tache }}.prom dans compose/monitoring/data/textfile.{{ else }}Lire ~/backups/{{ $labels.tache }}.log sur le Mini PC (cron 3h15).{{ end }}
 
       - alert: SauvegardeVaultwardenInconnue
         expr: absent(homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="vaultwarden"})
@@ -20,4 +24,13 @@ groups:
           severity: avertissement
         annotations:
           summary: "Aucune trace de la sauvegarde Vaultwarden dans la supervision"
-          description: "Le fichier data/textfile/vaultwarden.prom n'existe pas : dossier absent ou script pas à jour."
+          description: "Ni vaultwarden.prom (script) ni backrest-vaultwarden.prom (Backrest) dans data/textfile : dossier absent ou sauvegardes jamais réussies."
+
+      - alert: SauvegardesBackrestInconnues
+        expr: absent(homelab_sauvegarde_derniere_reussite_timestamp_seconds{outil="backrest"})
+        for: 30h                               # laisse passer une nuit après la mise en service
+        labels:
+          severity: avertissement
+        annotations:
+          summary: "Aucune sauvegarde Backrest réussie dans la supervision"
+          description: "Aucun fichier backrest-*.prom dans compose/monitoring/data/textfile : Backrest arrêté, dossier textfile non monté, ou aucun plan réussi."

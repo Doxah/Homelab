@@ -1,0 +1,242 @@
+{
+  "modno": 0,
+  "version": 6,
+  "instance": "minipc",
+  "repos": [
+    {
+      "id": "minipc",
+      "uri": "${RESTIC_REPO_MINIPC}",
+      "env": [
+        "RESTIC_PASSWORD=${RESTIC_PASSWORD_MINIPC}"
+      ],
+      "flags": [
+        "-o sftp.args='-i /ssh/id_ed25519 -o UserKnownHostsFile=/ssh/known_hosts -o IdentitiesOnly=yes -o BatchMode=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=10'"
+      ],
+      "prunePolicy": {
+        "schedule": {
+          "cron": "30 6 * * 0",
+          "clock": "CLOCK_LOCAL"
+        },
+        "maxUnusedPercent": 10
+      },
+      "checkPolicy": {
+        "schedule": {
+          "cron": "0 7 1 * *",
+          "clock": "CLOCK_LOCAL"
+        },
+        "readDataSubsetPercent": 5
+      },
+      "autoUnlock": true,
+      "autoInitialize": true,
+      "hooks": [
+        {
+          "conditions": [
+            "CONDITION_SNAPSHOT_START"
+          ],
+          "onError": "ON_ERROR_FATAL",
+          "actionCommand": {
+            "command": "bash /hooks/backrest-hook.sh avant '{{ .Plan.Id }}' </dev/null"
+          }
+        },
+        {
+          "conditions": [
+            "CONDITION_SNAPSHOT_END",
+            "CONDITION_SNAPSHOT_ERROR"
+          ],
+          "onError": "ON_ERROR_IGNORE",
+          "actionCommand": {
+            "command": "bash /hooks/backrest-hook.sh apres '{{ .Plan.Id }}' </dev/null"
+          }
+        },
+        {
+          "conditions": [
+            "CONDITION_SNAPSHOT_SUCCESS"
+          ],
+          "onError": "ON_ERROR_IGNORE",
+          "actionCommand": {
+            "command": "bash /hooks/backrest-hook.sh succes '{{ .Plan.Id }}' '{{ .SnapshotStats.TotalBytesProcessed }}' '{{ .SnapshotStats.DataAdded }}' </dev/null"
+          }
+        },
+        {
+          "conditions": [
+            "CONDITION_ANY_ERROR",
+            "CONDITION_SNAPSHOT_WARNING"
+          ],
+          "onError": "ON_ERROR_IGNORE",
+          "actionCommand": {
+            "command": "bash /hooks/backrest-hook.sh erreur '{{ .Plan.Id }}' '{{ .Task }}' <<'FIN_DETAIL'\n{{ .Error }}\nFIN_DETAIL\n"
+          }
+        }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "vaultwarden",
+      "repo": "minipc",
+      "paths": [
+        "/sources/vaultwarden"
+      ],
+      "schedule": {
+        "cron": "0 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 30,
+          "weekly": 8,
+          "monthly": 12
+        }
+      },
+      "excludes": [
+        "/sources/vaultwarden/icon_cache",
+        "/sources/vaultwarden/tmp"
+      ]
+    },
+    {
+      "id": "hote",
+      "repo": "minipc",
+      "paths": [
+        "/sources/hote"
+      ],
+      "schedule": {
+        "cron": "5 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      }
+    },
+    {
+      "id": "infra",
+      "repo": "minipc",
+      "paths": [
+        "/config",
+        "/sources/traefik",
+        "/sources/grafana"
+      ],
+      "schedule": {
+        "cron": "10 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      },
+      "excludes": [
+        "/sources/grafana/png",
+        "/sources/grafana/csv",
+        "/sources/grafana/pdf"
+      ]
+    },
+    {
+      "id": "arcane",
+      "repo": "minipc",
+      "paths": [
+        "/sources/arcane"
+      ],
+      "schedule": {
+        "cron": "15 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      },
+      "excludes": [
+        "/sources/arcane/logs"
+      ]
+    },
+    {
+      "id": "soulsync",
+      "repo": "minipc",
+      "paths": [
+        "/sources/soulsync"
+      ],
+      "schedule": {
+        "cron": "20 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      },
+      "excludes": [
+        "/sources/soulsync/slskd/logs",
+        "/sources/soulsync/slskd/incomplete",
+        "/sources/soulsync/slskd/downloads"
+      ]
+    },
+    {
+      "id": "discopanel",
+      "repo": "minipc",
+      "paths": [
+        "/sources/discopanel"
+      ],
+      "schedule": {
+        "cron": "30 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      },
+      "excludes": [
+        "logs",
+        "crash-reports"
+      ]
+    },
+    {
+      "id": "jellyfin",
+      "repo": "minipc",
+      "paths": [
+        "/sources/jellyfin"
+      ],
+      "schedule": {
+        "cron": "45 5 * * *",
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      },
+      "excludes": [
+        "/sources/jellyfin/gluetun",
+        "/sources/jellyfin/jellyfin/cache",
+        "/sources/jellyfin/jellyfin/log",
+        "/sources/jellyfin/jellyfin/data/metadata",
+        "/sources/jellyfin/jellyfin/data/transcodes",
+        "/sources/jellyfin/radarr/MediaCover",
+        "/sources/jellyfin/radarr/logs",
+        "/sources/jellyfin/radarr/logs.db*",
+        "/sources/jellyfin/radarr/Backups",
+        "/sources/jellyfin/sonarr/MediaCover",
+        "/sources/jellyfin/sonarr/logs",
+        "/sources/jellyfin/sonarr/logs.db*",
+        "/sources/jellyfin/sonarr/Backups",
+        "/sources/jellyfin/jellyseerr/logs",
+        "/sources/jellyfin/jellyseerr/cache",
+        "/sources/jellyfin/jackett/Jackett/log.txt*"
+      ]
+    }
+  ]
+}

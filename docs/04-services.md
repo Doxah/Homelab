@@ -7,7 +7,7 @@
 | **Serveur web** | Site vitrine personnel |
 | **cloudflared ×2** | Un tunnel pour Jellyfin, un pour le site web |
 | **Arcane** | Interface de gestion Docker, en cours d'adoption ; encore des problèmes, donc beaucoup de CLI (`docker compose`) |
-| **Portabase** | En test |
+| **Backrest** | Sauvegardes restic de toutes les stacks, chaque nuit vers le Synology, interface web ([stack](../compose/backrest/)) |
 | **ConvertX** | Conversion de fichiers |
 | **GLPI** | Gestion de parc / helpdesk, en test ([stack](../compose/glpi/)) |
 | **SoulSync + slskd** | Stack musique « Spotify selfhost » : découverte, téléchargement Soulseek, rangement vers la bibliothèque Jellyfin, en préparation ([stack](../compose/soulsync/)) |

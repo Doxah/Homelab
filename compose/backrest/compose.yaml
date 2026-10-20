@@ -1,0 +1,170 @@
+# Backrest : sauvegardes restic du Mini PC, avec interface web (https://github.com/garethgeorge/backrest)
+# Secrets : secrets.sops.env (RESTIC_REPO_MINIPC, RESTIC_PASSWORD_MINIPC, NTFY_TOKEN, DISCOPANEL_HOST_DATA_PATH, DOCKER_GID)
+#           + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh backrest
+# Données : ./data (config.json, journal des opérations, cache restic, clé SSH, état des hooks, restaurations). Jamais dans Git.
+# Dépôt, plans et hooks : config.modele.json, copié UNE fois dans data/config/config.json ; ensuite, l'interface fait foi.
+#
+# EXCEPTION DOCUMENTÉE AU MOINDRE PRIVILÈGE
+# Backrest doit LIRE les données de toutes les stacks (UID 1000, root…) et pouvoir restaurer en gardant propriétaires
+# et dates : root dans le conteneur, avec seulement DAC_OVERRIDE (passer outre les droits des fichiers), CHOWN et FOWNER
+# (restaurer propriétaires, droits, dates). Pas DAC_READ_SEARCH (open_by_handle_at : vecteur d'évasion « Shocker »).
+# Atténuations :
+# - toutes les sources sont montées en lecture seule (:ro, imposé par le noyau quelles que soient les capacités) ;
+# - écritures limitées à ./data et au dossier textfile de la supervision ; image en lecture seule ; no-new-privileges ;
+# - pas d'accès au socket Docker : arrêt/relance via socket-proxy-backrest, limité à stop/start de conteneurs NOMMÉS ;
+# - interface réservée aux postes d'admin (lan-admin@docker), avec compte Backrest.
+name: backrest
+
+services:
+  backrest:
+    image: ghcr.io/garethgeorge/backrest:v1.14.1   # version figée (restic 0.19.1 inclus)
+    container_name: backrest
+    hostname: minipc                               # nom d'hôte enregistré dans les snapshots restic : stable entre recréations
+    restart: unless-stopped
+
+    cap_drop: [ALL]
+    cap_add: [DAC_OVERRIDE, CHOWN, FOWNER]         # voir l'exception en tête de fichier
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /root                                      # ssh y cherche ~/.ssh ; rien à conserver
+
+    mem_limit: 2g                                  # restic : index du dépôt en mémoire
+    cpus: 2.0
+    pids_limit: 300
+
+    environment:
+      TZ: Europe/Paris                             # les plannings cron (CLOCK_LOCAL) suivent ce fuseau
+      BACKREST_PORT: 0.0.0.0:9898
+      BACKREST_DATA: /data
+      BACKREST_CONFIG: /config/config.json
+      XDG_CACHE_HOME: /cache                       # cache restic : accélère les sauvegardes, reconstructible
+      TMPDIR: /tmp
+      # Utilisées dans config.json sous la forme ${VAR} (URI et mot de passe du dépôt) : jamais en clair dans la config
+      RESTIC_REPO_MINIPC: ${RESTIC_REPO_MINIPC:?secret manquant}
+      RESTIC_PASSWORD_MINIPC: ${RESTIC_PASSWORD_MINIPC:?secret manquant}
+      # Lues par hooks/backrest-hook.sh
+      DOCKER_API: http://socket-proxy-backrest:2375
+      NTFY_URL: http://ntfy:8080/homelab-sauvegardes       # réseau proxy, compte ntfy « scripts »
+      NTFY_TOKEN: ${NTFY_TOKEN:?secret manquant}
+      TEXTFILE_DIR: /textfile
+      ETAT_DIR: /data/etat-hooks
+
+    volumes:
+      # --- Backrest lui-même (lecture-écriture). Syntaxe longue : dossier absent = échec explicite, pas un dossier root ---
+      - type: bind
+        source: ./data/config                      # config.json (dépôt, plans, hooks, compte de l'interface)
+        target: /config
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./data/backrest                    # journal des opérations, état des hooks
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./data/cache
+        target: /cache
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./data/restauration                # cible des restaurations lancées depuis l'interface
+        target: /restauration
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./data/ssh                         # id_ed25519 + known_hosts du NAS (SFTP)
+        target: /ssh
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./hooks:/hooks:ro                          # dossier (pas le fichier) : un git pull est vu sans redémarrage
+      - type: bind
+        source: ../monitoring/data/textfile        # backrest-<plan>.prom, lus par node_exporter
+        target: /textfile
+        bind:
+          create_host_path: false
+
+      # --- Sources, TOUTES en lecture seule (un dossier = un plan dans config.json) ---
+      - ../vaultwarden/data:/sources/vaultwarden:ro                          # plan vaultwarden
+      - /etc:/sources/hote/etc:ro                                            # plan hote
+      - /var/spool/cron/crontabs:/sources/hote/crontabs:ro
+      - ${HOME:?HOME non défini}/.ssh:/sources/hote/ssh-utilisateur:ro
+      - ${HOME:?HOME non défini}/.config/sops:/sources/hote/sops-utilisateur:ro             # clé age du Mini PC
+      - ../traefik/data:/sources/traefik:ro                                  # plan infra (+ /config de Backrest)
+      - ../monitoring/data/grafana:/sources/grafana:ro
+      - arcane-data:/sources/arcane:ro                                       # plan arcane
+      - ../soulsync/config:/sources/soulsync/config:ro                       # plan soulsync
+      - ../soulsync/data:/sources/soulsync/data:ro
+      - ../soulsync/slskd:/sources/soulsync/slskd:ro
+      - ${DISCOPANEL_HOST_DATA_PATH:?secret manquant}:/sources/discopanel:ro  # plan discopanel
+      - ../jellyfin/config:/sources/jellyfin:ro                              # plan jellyfin
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:9898/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    networks: [proxy, socket]                      # proxy : Traefik, ntfy et sortie vers le NAS
+    depends_on:
+      - socket-proxy-backrest
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.backrest.rule: Host(`backrest.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.backrest.middlewares: lan-admin@docker   # postes d'admin uniquement
+      traefik.http.services.backrest.loadbalancer.server.port: "9898"
+
+  # API Docker réduite au strict nécessaire des hooks : arrêter/relancer les conteneurs listés, rien d'autre
+  # (ni lecture, ni création, ni exec). La liste doit correspondre à CONTENEURS dans hooks/backrest-hook.sh.
+  socket-proxy-backrest:
+    image: wollomatic/socket-proxy:1.13.1          # version figée, même image que les autres socket-proxy
+    container_name: socket-proxy-backrest
+    restart: unless-stopped
+
+    user: "65534:${DOCKER_GID:?secret manquant}"   # nobody + groupe docker de l'hôte
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+
+    command:
+      - -loglevel=info
+      - -listenip=0.0.0.0
+      - -allowfrom=backrest                        # seul le conteneur backrest
+      # ^ et $ ajoutés automatiquement par socket-proxy ; méthodes non listées = refusées
+      - -allowPOST=/(v1\.[0-9]{1,2}/)?containers/(vaultwarden|seerr|radarr|sonarr|jackett|transmission|jellyfin|soulsync|slskd|arcane|discopanel|grafana)/(stop|start)
+      - -allowhealthcheck
+      - -watchdoginterval=3600                     # s'arrête si le socket casse (mise à jour de Docker) : restart le relance
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+
+    networks: [socket]                             # JAMAIS sur le réseau proxy ni publié
+
+networks:
+  proxy:
+    external: true                                 # créé par la stack traefik
+  socket:
+    internal: true                                 # backrest <-> socket-proxy-backrest, sans accès Internet
+
+volumes:
+  arcane-data:
+    name: arcane_arcane-data                       # volume de la stack arcane
+    external: true

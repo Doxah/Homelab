@@ -9,6 +9,4 @@
 convertx
 discopanel
 monitoring
-portabase
-portabase-agent
 soulsync

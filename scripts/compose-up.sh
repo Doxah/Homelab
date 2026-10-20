@@ -2,7 +2,7 @@
 # Lance une ou plusieurs stacks de compose/ en injectant leurs secrets SOPS en mémoire (aucun fichier en clair sur le disque).
 # Usage : scripts/compose-up.sh <stack> [<stack>...] [commande docker compose]
 #   scripts/compose-up.sh jellyfin                  -> docker compose up -d
-#   scripts/compose-up.sh jellyfin portabase down   -> down sur les deux stacks (ordre inverse)
+#   scripts/compose-up.sh jellyfin soulsync down    -> down sur les deux stacks (ordre inverse)
 #   scripts/compose-up.sh jellyfin pull
 #   scripts/compose-up.sh jellyfin config           -> vérifier l'interpolation (affiche les secrets !)
 #   scripts/compose-up.sh jellyfin -- logs -f       -> « -- » force la fin de la liste des stacks

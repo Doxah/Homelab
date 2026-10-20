@@ -5,7 +5,7 @@ Lance une ou plusieurs stacks de `compose/` avec leurs secrets SOPS injectés en
 ## Utilisation
 ```bash
 scripts/compose-up.sh jellyfin                   # docker compose up -d
-scripts/compose-up.sh jellyfin portabase down    # plusieurs stacks (down/stop : ordre inverse)
+scripts/compose-up.sh jellyfin soulsync down     # plusieurs stacks (down/stop : ordre inverse)
 scripts/compose-up.sh jellyfin pull
 scripts/compose-up.sh jellyfin -- logs -f        # « -- » termine la liste des stacks
 ```

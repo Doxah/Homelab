@@ -86,9 +86,11 @@ Le papier couvre le cas où le PC est perdu aussi.
 ### 1. Synology : compte de service et SFTP
 DSM 7.2, avec un compte administrateur :
 1. **Dossier partagé** pour les sauvegardes (ou celui de Vaultwarden), et dedans un dossier `minipc`.
-2. **Utilisateur** `backup_minipc` : pas administrateur, lecture/écriture sur ce dossier partagé **uniquement** (aucun accès ailleurs),
-   *Privilèges des applications* : **SFTP** seulement.
-3. **Services de fichiers → FTP → SFTP** : activer. Le port est celui du service SSH.
+2. **Utilisateur** `backup_minipc` : pas administrateur, lecture/écriture sur ce dossier partagé, *Privilèges des applications* : **SFTP** seulement.
+   ⚠ Ne **pas** cocher « Pas d'accès » sur `homes` : DSM pose alors un refus ACL sur tout `homes`, y compris le dossier personnel du compte,
+   et sshd ne peut plus lire `~/.ssh/authorized_keys` (la clé est refusée, le mot de passe est demandé). Laisser `homes` sans case cochée.
+3. **Services de fichiers → FTP → SFTP** : activer, **même port que le service SSH** (Terminal & SNMP). Avec deux ports différents,
+   le SFTP échoue (`subsystem request failed`) ou passe par une autre configuration.
 4. Service d'accueil des utilisateurs déjà activé (fait pour Vaultwarden) : nécessaire pour `authorized_keys`.
 
 ### 2. Mini PC : dossiers, clé SSH, configuration
@@ -225,6 +227,9 @@ Si le commit est déjà arrivé : `docker compose -p portabase-agent down` et `d
 ## Dépannage
 | Symptôme | Cause probable |
 |---|---|
+| `subsystem request failed on channel 0` | SFTP désactivé dans DSM ou pas autorisé pour le compte (Privilèges des applications) |
+| `sftp` demande un mot de passe alors que la clé est bonne | sshd ne peut pas lire `authorized_keys` : refus ACL sur `homes`. Diagnostic sur le NAS : `synoacltool -get /volume1/homes` (ligne `user:backup_minipc:deny`) ; test : `su -s /bin/sh backup_minipc -c 'cat ~backup_minipc/.ssh/authorized_keys'` |
+| Raison exacte d'un refus de clé | Sur le NAS : `grep -viE '^\s*(Port\|ListenAddress)' /etc/ssh/sshd_config > /tmp/t.conf && /usr/bin/sshd -d -f /tmp/t.conf -p 2222`, puis se connecter sur 2222 |
 | `Permission denied (publickey)` / `ssh: connect` dans *Repositories* | Clé absente de `authorized_keys`, `from=` différent de l'IP du Mini PC, SFTP non autorisé pour `backup_minipc` |
 | `Host key verification failed` | `data/ssh/known_hosts` vide ou faux : refaire `ssh-keyscan` |
 | `wrong password or no key found` | `RESTIC_PASSWORD_MINIPC` différent de celui de l'initialisation |

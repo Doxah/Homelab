@@ -1,0 +1,14 @@
+# Liste blanche du déploiement automatique (scripts/deploiement-auto.sh, voir docs/14-deploiement-auto.md).
+# Une stack par ligne (nom du dossier dans compose/). Après un push sur main, seules les stacks MODIFIÉES
+# et présentes ici sont relancées (scripts/compose-up.sh <stack> up -d --remove-orphans).
+# Les autres stacks modifiées sont signalées dans la notification ntfy : à relancer à la main.
+#
+# Volontairement absentes (une erreur coupe l'accès ou la notification d'échec) :
+#   traefik, cloudflared, arcane, vaultwarden, ntfy, webhook
+#   jellyfin : recréer gluetun casse le port forwardé et coupe les lectures en cours
+convertx
+discopanel
+monitoring
+portabase
+portabase-agent
+soulsync

@@ -1,0 +1,37 @@
+# Hook appelé par GitHub : https://deploiement.<DOMAIN>/hooks/homelab
+# Lu avec -template : {{ getenv "..." }} est remplacé au démarrage par la variable d'environnement du conteneur.
+# Les trois conditions doivent être vraies, sinon réponse 403 et rien n'est fait.
+- id: homelab
+  # Seule action possible : écrire un horodatage. Le déploiement est fait par l'hôte (scripts/deploiement-auto.sh).
+  execute-command: /bin/sh
+  pass-arguments-to-command:
+    - source: string
+      name: -c
+    - source: string
+      name: date +%s > /declencheur/deploiement
+  include-command-output-in-response: false
+  response-message: "Déploiement demandé"
+  trigger-rule-mismatch-http-response-code: 403
+  trigger-rule:
+    and:
+      # 1. Signature HMAC-SHA256 du corps avec le secret partagé (en-tête « sha256=… » envoyé par GitHub)
+      - match:
+          type: payload-hmac-sha256
+          secret: '{{ getenv "WEBHOOK_SECRET" }}'
+          parameter:
+            source: header
+            name: X-Hub-Signature-256
+      # 2. Événement push uniquement (le « ping » envoyé à la création du webhook répond donc 403 : normal)
+      - match:
+          type: value
+          value: push
+          parameter:
+            source: header
+            name: X-GitHub-Event
+      # 3. Branche main uniquement
+      - match:
+          type: value
+          value: refs/heads/main
+          parameter:
+            source: payload
+            name: ref

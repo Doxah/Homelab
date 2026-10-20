@@ -15,6 +15,8 @@ Documentation publique. Les adresses IP, règles de pare-feu, configuration VPN 
 | [09-feuille-de-route.md](09-feuille-de-route.md) | Objectifs : simplification et apprentissage DevOps |
 | [10-secrets.md](10-secrets.md) | Gestion des secrets avec SOPS + age |
 | [11-pfsense-acme.md](11-pfsense-acme.md) | Certificat Let's Encrypt du webGUI pfSense (ACME + DNS Cloudflare) |
+| [13-compose-up.md](13-compose-up.md) | Lancer les stacks avec leurs secrets (`scripts/compose-up.sh`) |
+| [14-deploiement-auto.md](14-deploiement-auto.md) | Déploiement automatique : push GitHub → webhook → Mini PC |
 
 ## Principes
 - Docker Compose plutôt que LXC (les LXC sont jugés opaques).

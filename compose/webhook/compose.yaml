@@ -1,0 +1,68 @@
+# webhook : reçoit le webhook « push » de GitHub et demande un déploiement au Mini PC.
+# Secrets : secrets.sops.env (WEBHOOK_SECRET, NTFY_TOKEN) + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh webhook
+# Données : ./data/declencheur (fichier déposé par le conteneur, lu par scripts/deploiement-auto.sh), 1000:1000. Jamais dans Git.
+#
+# Principe (voir docs/14-deploiement-auto.md) :
+#   GitHub ──push──► Cloudflare (tunnel) ──► Traefik ──► webhook : vérifie la signature HMAC, la branche, l'événement,
+#   puis écrit seulement un horodatage dans ./data/declencheur/deploiement.
+#   Sur l'hôte, cron lance scripts/deploiement-auto.sh chaque minute : s'il trouve le fichier, il fait git fetch,
+#   avance main (fast-forward) et relance les stacks modifiées présentes dans compose/deploiement-auto.txt.
+#
+# Moindre privilège : ce conteneur est exposé sur Internet, il n'a donc RIEN d'autre que ce dossier :
+# pas de socket Docker, pas de dépôt Git, pas de clé SOPS. Une requête forgée ne peut au pire que provoquer
+# un git fetch du vrai dépôt GitHub (le contenu déployé vient toujours de GitHub, jamais de la requête).
+name: webhook
+
+services:
+  webhook:
+    image: almir/webhook:2.8.2                  # adnanh/webhook packagé sur Alpine — version figée
+    container_name: webhook
+    restart: unless-stopped
+
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 50
+
+    # -template : hooks.yaml lit le secret par {{ getenv "WEBHOOK_SECRET" }} (jamais écrit sur le disque)
+    command:
+      - -hooks=/etc/webhook/hooks.yaml
+      - -template
+      - -port=9000
+      - -http-methods=POST
+      - -verbose
+    environment:
+      TZ: Europe/Paris
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?secret manquant}
+
+    volumes:
+      - ./hooks.yaml:/etc/webhook/hooks.yaml:ro
+      - type: bind
+        source: ./data/declencheur
+        target: /declencheur
+        bind:
+          create_host_path: false               # échec explicite si le dossier n'existe pas (au lieu d'un dossier root)
+
+    networks: [proxy]
+    labels:
+      traefik.enable: "true"
+      # Seul le chemin du hook est routé ; le reste de deploiement.<DOMAIN> répond 404.
+      traefik.http.routers.webhook.rule: Host(`deploiement.${DOMAIN:?secret manquant}`) && Path(`/hooks/homelab`)
+      traefik.http.routers.webhook.middlewares: webhook-limite
+      traefik.http.middlewares.webhook-limite.ratelimit.average: "10"   # requêtes/minute en moyenne
+      traefik.http.middlewares.webhook-limite.ratelimit.period: 1m
+      traefik.http.middlewares.webhook-limite.ratelimit.burst: "5"
+      traefik.http.services.webhook.loadbalancer.server.port: "9000"
+      # Pas de lan-admin : GitHub doit joindre le hook depuis Internet. La sécurité repose sur la signature HMAC.
+
+networks:
+  proxy:
+    external: true                              # créé par la stack traefik

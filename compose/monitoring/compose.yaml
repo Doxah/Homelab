@@ -130,6 +130,9 @@ services:
       - --web.listen-address=${BIND_IP:?secret manquant}:9100   # jamais 0.0.0.0 : seulement l'IP LAN du Mini PC
       - --collector.textfile.directory=/textfile
       - --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|var/lib/docker/.+|var/lib/containers/.+)($$|/)
+      # Partages réseau exclus (défaut de node_exporter + cifs/smb3/nfs) : un NAS figé bloque statfs() et faisait échouer
+      # TOUTE la collecte de l'hôte (trous sur /, /boot/efi…). L'espace des NAS est suivi par SNMP (module hr_storage).
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tracefs|cifs|smb3|nfs4?)$$
     volumes:
       - /:/host:ro,rslave
       - ./data/textfile:/textfile:ro             # écrit par scripts/vaultwarden-backup.sh, deploiement-auto.sh et Backrest

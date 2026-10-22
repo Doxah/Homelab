@@ -1141,8 +1141,16 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{container=~\"$conteneur\"} |~ \"(?i)(error|erreur|fatal|panic|critical)\" | line_format `{{ printf \"%-24s\" .container }} │ {{ __line__ }}`",
+          "expr": "{container=~\"$conteneur\", level=~\"error|critical\"} | line_format `{{ printf \"%-24s\" .container }} │ {{ __line__ }}`",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{container=~\"$conteneur\", level=\"\"} |~ \"(?i)(error|erreur|fatal|panic|critical)\" | line_format `{{ printf \"%-24s\" .container }} │ {{ __line__ }}`",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1159,7 +1167,7 @@
         "showCommonLabels": false,
         "prettifyLogMessage": false
       },
-      "description": "Lignes contenant error / erreur / fatal / panic / critical. Le nom du conteneur est ajouté en tête de ligne ; filtrer avec la liste « Conteneur » en haut du tableau de bord."
+      "description": "A : lignes de niveau error ou critical (label level posé par Alloy). B : lignes sans niveau reconnu contenant error / erreur / fatal / panic / critical. Le nom du conteneur est ajouté en tête de ligne ; filtrer avec la liste « Conteneur » en haut du tableau de bord."
     }
   ],
   "templating": {

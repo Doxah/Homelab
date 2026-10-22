@@ -44,6 +44,10 @@ loki.source.docker "conteneurs" {
 loki.process "conteneurs" {
   forward_to = [loki.write.local.receiver]
 
+  // Codes couleur ANSI retirés (Seerr colore son niveau : « [\x1b[31merror\x1b[39m] »), sinon les regex
+  // ci-dessous ne trouvent pas le niveau. Les lignes sont aussi plus lisibles dans Grafana.
+  stage.decolorize {}
+
   // Bruit connu : Arcane analyse chaque compose.yaml sans les secrets SOPS (injectés seulement par
   // scripts/compose-up.sh), d'où un avertissement par stack à chaque scan. Sans effet sur les conteneurs.
   // Lignes supprimées comptées dans loki_process_dropped_lines_total{reason="arcane_compose_sans_secrets"}.

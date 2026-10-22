@@ -36,7 +36,63 @@ loki.source.docker "conteneurs" {
   targets          = discovery.docker.conteneurs.targets
   relabel_rules    = discovery.relabel.conteneurs.rules
   refresh_interval = "30s"
-  forward_to       = [loki.write.local.receiver]
+  forward_to       = [loki.process.conteneurs.receiver]
+}
+
+// Traitement des journaux avant Loki : suppression du bruit connu, puis label « level » normalisé.
+// Sans ce label, Grafana devine le niveau d'après le texte (« error » quelque part dans la ligne = error).
+loki.process "conteneurs" {
+  forward_to = [loki.write.local.receiver]
+
+  // Bruit connu : Arcane analyse chaque compose.yaml sans les secrets SOPS (injectés seulement par
+  // scripts/compose-up.sh), d'où un avertissement par stack à chaque scan. Sans effet sur les conteneurs.
+  // Lignes supprimées comptées dans loki_process_dropped_lines_total{reason="arcane_compose_sans_secrets"}.
+  stage.match {
+    selector            = "{container=\"arcane\"} |= \"failed to parse Arcane compose metadata\""
+    action              = "drop"
+    drop_counter_reason = "arcane_compose_sans_secrets"
+  }
+
+  // Extraction du niveau selon le format du journal. Une étape qui ne correspond pas ne change rien ;
+  // les formats ancrés en début de ligne (plus fiables) passent en dernier et l'emportent.
+  // logfmt : Prometheus, Grafana, Loki, Alloy, Alertmanager, exporters…
+  stage.regex {
+    expression = `(?:^|\s)(?:level|lvl)="?(?P<level>[A-Za-z]+)`
+  }
+  // JSON
+  stage.regex {
+    expression = `^\{.*?"(?:level|lvl|severity)"\s*:\s*"(?P<level>[A-Za-z]+)"`
+  }
+  // zerolog console : Traefik, cloudflared (« 2026-10-21T20:55:00Z INF … »), Arcane (« Oct 21 22:55:26.589 WRN … »)
+  stage.regex {
+    expression = `^(?:\d{4}-\d{2}-\d{2}T\S+|[A-Z][a-z]{2} +\d{1,2} [\d:.]+) (?P<level>TRC|DBG|INF|WRN|ERR|FTL|PNC) `
+  }
+  // Seerr (« 2026-10-21T20:55:00.060Z [error][Jellyfin Sync]: … »)
+  stage.regex {
+    expression = `^\d{4}-\d{2}-\d{2}T\S+ \[(?P<level>[a-zA-Z]+)\]`
+  }
+  // Jellyfin (« [22:55:00] [INF] [42] … »)
+  stage.regex {
+    expression = `^\[[\d:.]+\] \[(?P<level>[A-Z]{3})\]`
+  }
+  // Vaultwarden (« [2026-10-21 22:55:00.123][module][INFO] … »)
+  stage.regex {
+    expression = `^\[\d{4}-\d{2}-\d{2} [^\]]+\]\[[^\]]+\]\[(?P<level>[A-Z]+)\]`
+  }
+  // Journal Go standard : ntfy… (« 2026/10/21 20:55:00 INFO … »)
+  stage.regex {
+    expression = `^\d{4}/\d{2}/\d{2} [\d:.]+ (?P<level>[A-Z]+) `
+  }
+
+  // Normalisation : valeurs reconnues par Grafana (trace, debug, info, warn, error, critical).
+  // Aucun niveau trouvé = pas de label (résultat vide), Grafana garde sa détection habituelle.
+  stage.template {
+    source   = "level"
+    template = `{{ if .Value }}{{ $l := ToLower .Value }}{{ if eq $l "trc" "trace" }}trace{{ else if eq $l "dbg" "debug" }}debug{{ else if eq $l "inf" "info" "information" "notice" }}info{{ else if eq $l "wrn" "warn" "warning" }}warn{{ else if eq $l "err" "eror" "error" }}error{{ else if eq $l "ftl" "fatal" "pnc" "panic" "crit" "critical" "alert" "emerg" }}critical{{ else }}{{ $l }}{{ end }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
 }
 
 loki.write "local" {

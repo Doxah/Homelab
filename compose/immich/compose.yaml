@@ -1,0 +1,138 @@
+# Immich : photos et vidéos (sauvegarde des téléphones), réinstallé sur le Mini PC. Basé sur le compose officiel v3
+# (https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml) et sa variante rootless.
+# Secrets : secrets.sops.env (UPLOAD_LOCATION, DB_PASSWORD) + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh immich
+# Publié par Traefik : photos.<DOMAIN> (LAN et VPN, sans lan-admin : appli mobile et famille). Plus de port 2283 publié.
+# Données :
+#   ${UPLOAD_LOCATION}  bibliothèque (originaux, miniatures, vidéos transcodées) ; propriétaire 1000:1000
+#   ./postgres-data     base PostgreSQL : disque LOCAL obligatoire (pas de partage réseau) ; propriétaire 1000:1000
+#   ./data/model-cache  modèles de machine learning (re-téléchargeables)
+#   ./data/db-dumps     sauvegardes automatiques de la base faites par Immich (02:00) : à sauvegarder avec Backrest
+# Jamais dans Git (compose/*/data/ et compose/*/postgres-data/ sont ignorés).
+#
+# Moindre privilège (variante rootless officielle, durcie) : les 4 conteneurs tournent en 1000:1000, sans aucune capacité,
+# no-new-privileges, limites de ressources. La base et Valkey sont sur un réseau interne sans accès Internet.
+# Pas de read_only sur immich-server / machine-learning / postgres : non prévu par l'upstream, à tester un par un.
+name: immich
+
+x-durcissement: &durcissement
+  user: "1000:1000"
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+services:
+  immich-server:
+    <<: *durcissement
+    image: ghcr.io/immich-app/immich-server:v3.3.5     # version figée (IMMICH_VERSION du .env officiel), mise à jour par Renovate
+    container_name: immich_server                      # mêmes noms que l'ancien compose officiel
+
+    mem_limit: 4g                                      # miniatures (sharp) et ffmpeg en parallèle
+    cpus: 4.0
+    pids_limit: 1000
+
+    environment:
+      TZ: Europe/Paris
+      DB_HOSTNAME: database                            # valeurs par défaut, explicites
+      REDIS_HOSTNAME: redis
+      DB_USERNAME: postgres
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: ${DB_PASSWORD:?secret manquant}
+
+    volumes:
+      - ${UPLOAD_LOCATION:?secret manquant}:/data
+      # Sauvegardes de la base sur le disque local du Mini PC, hors de la bibliothèque : Backrest les lit sans secret
+      # et sans arrêter Immich (dumps cohérents). Dossier à créer AVANT le 1er lancement (voir README).
+      - ./data/db-dumps:/data/backups
+      - /etc/localtime:/etc/localtime:ro
+
+    # Transcodage matériel Intel QuickSync (UHD 770), comme Jellyfin. À activer aussi dans l'interface :
+    # Administration → Paramètres → Transcodage vidéo → Accélération matérielle → Quick Sync.
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "105"                                          # GID du groupe 'render' de l'hôte (getent group render)
+
+    networks: [default, interne, proxy]                # default : machine learning ; interne : base + Valkey ; proxy : Traefik
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.immich.rule: Host(`photos.${DOMAIN:?secret manquant}`)
+      traefik.http.services.immich.loadbalancer.server.port: "2283"
+      # Gros envois (vidéos) : readTimeout de l'entrypoint websecure déjà à 15 min (compose/traefik), pas de limite de taille.
+
+    depends_on:
+      - redis
+      - database
+    healthcheck:
+      disable: false                                   # healthcheck intégré à l'image
+
+  immich-machine-learning:
+    <<: *durcissement
+    # Accélération Intel (OpenVINO, iGPU) possible : tag v3.3.5-openvino + /dev/dri, device_cgroup_rules ['c 189:* rmw']
+    # et /dev/bus/usb (voir hwaccel.ml.yml de l'upstream). CPU pour commencer : plus simple, suffisant après l'import initial.
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5
+    container_name: immich_machine_learning
+
+    mem_limit: 4g                                      # modèles CLIP + reconnaissance faciale chargés en mémoire
+    cpus: 4.0
+    pids_limit: 500
+
+    environment:
+      TZ: Europe/Paris
+
+    volumes:
+      # Dossier local (pas de volume nommé) : un volume nommé est créé en root, illisible en 1000 (FAQ Immich, non-root)
+      - ./data/model-cache:/cache
+
+    networks: [default]                                # téléchargement des modèles (Hugging Face) au premier usage
+    healthcheck:
+      disable: false
+
+  redis:
+    <<: *durcissement
+    image: docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d
+    container_name: immich_redis
+
+    read_only: true
+    tmpfs:
+      - /data:uid=1000,gid=1000                        # file de tâches seulement : rien à conserver (le compose officiel n'a pas de volume)
+
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 100
+
+    networks: [interne]
+    healthcheck:
+      test: redis-cli ping | grep -q PONG || exit 1
+
+  database:
+    <<: *durcissement
+    # Même image (PostgreSQL 14 + VectorChord) que l'ancienne installation v2 : la base existante est reprise telle quelle.
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    container_name: immich_postgres
+
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 300
+    shm_size: 128mb
+
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?secret manquant}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+      # DB_STORAGE_TYPE: "HDD"                         # seulement si ./postgres-data n'est pas sur SSD
+
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+
+    networks: [interne]                                # jamais publiée, aucun accès Internet
+    healthcheck:
+      disable: false
+
+networks:
+  interne:
+    internal: true                                     # base + Valkey : pas d'accès Internet ni depuis l'extérieur
+  proxy:
+    external: true                                     # créé par la stack traefik

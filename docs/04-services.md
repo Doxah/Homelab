@@ -15,7 +15,7 @@
 | **Supervision** | Prometheus, Grafana, Loki, Alertmanager ([stack](../compose/monitoring/)) |
 | **ntfy** | Notifications push des alertes et des scripts ([stack](../compose/ntfy/)) |
 | **2× serveur CS2** | Tests, à supprimer (trop d'espace disque) |
-| **Immich** | À réinstaller |
+| **Immich** | Photos et vidéos (sauvegarde des téléphones), v3, en réinstallation : reprise de la base v2 ([stack](../compose/immich/)) |
 
 ## Dell T130 (Proxmox, LXC)
 | Service | Notes |

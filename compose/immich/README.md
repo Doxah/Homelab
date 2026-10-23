@@ -4,7 +4,7 @@ Photos et vidéos auto-hébergées (sauvegarde automatique des téléphones, rec
 Réinstallation de l'ancienne instance (compose officiel par défaut, Immich v2) dans le dépôt, en **v3**.
 
 ```
-téléphones / PC (LAN, VPN) ──► Traefik photos.<domaine> ──► immich_server ──► immich_machine_learning (default)
+téléphones / PC (LAN, VPN) ──► Traefik immich.<domaine> ──► immich_server ──► immich_machine_learning (default)
                                                                │
                                                                └──► immich_postgres + immich_redis (réseau « interne », sans Internet)
 ```
@@ -15,7 +15,7 @@ téléphones / PC (LAN, VPN) ──► Traefik photos.<domaine> ──► immich
 | Base | Compose officiel v3.3.5 et sa variante rootless | Même images, mêmes noms de conteneurs que l'ancien compose : la base v2 est reprise telle quelle |
 | Version | `v3.3.5` figée (au lieu de `IMMICH_VERSION=v2`/`release`) | Mises à jour proposées par Renovate, jamais de saut de version majeure à l'insu |
 | Secrets | `UPLOAD_LOCATION`, `DB_PASSWORD` dans SOPS ; plus de `.env` ni d'`env_file` | Rien en clair sur le disque ; le reste (utilisateur, nom de la base) est en dur dans `compose.yaml` |
-| Accès | `photos.<domaine>` par Traefik, LAN et VPN, sans `lan-admin` | Appli mobile et famille. Plus de port 2283 publié |
+| Accès | `immich.<domaine>` par Traefik, LAN et VPN, sans `lan-admin` | Appli mobile et famille. Plus de port 2283 publié |
 | Pas de tunnel Cloudflare | Accès extérieur par le VPN | Cloudflare limite le corps des requêtes à 100 Mo : les vidéos du téléphone échoueraient |
 | Transcodage | Intel QuickSync (`/dev/dri`, groupe `render`), comme Jellyfin | À activer aussi dans l'interface |
 | Machine learning | CPU | OpenVINO (iGPU) possible plus tard, voir le commentaire dans `compose.yaml` |
@@ -106,22 +106,22 @@ mkdir -p data/model-cache data/db-dumps postgres-data            # AVANT le 1er 
 sudo install -d -o 1000 -g 1000 <UPLOAD_LOCATION>                # compte sudoer, si le dossier n'existe pas
 cd ~/Homelab && scripts/compose-up.sh immich config --quiet && scripts/compose-up.sh immich pull && scripts/compose-up.sh immich
 ```
-Ouvrir `https://photos.<domaine>` tout de suite : **le premier compte créé est administrateur**.
+Ouvrir `https://immich.<domaine>` tout de suite : **le premier compte créé est administrateur**.
 
 ### DNS
-pfSense → *Services → DNS Resolver → Host Overrides* : `photos.<domaine>` → IP du Mini PC.
+pfSense → *Services → DNS Resolver → Host Overrides* : `immich.<domaine>` → IP du Mini PC.
 Retirer l'ancienne règle pare-feu vers le port 2283 s'il y en avait une.
 
 ### Réglages dans l'interface (Administration → Paramètres)
 | Réglage | Valeur |
 |---|---|
-| Paramètres du serveur → Domaine externe | `https://photos.<domaine>` (liens de partage) |
+| Paramètres du serveur → Domaine externe | `https://immich.<domaine>` (liens de partage) |
 | Transcodage vidéo → Accélération matérielle | Quick Sync, accélération du décodage activée |
 | Sauvegarde de la base | Activée (par défaut), 02:00, garder 14 : écrit dans `./data/db-dumps` |
-| Appli mobile → URL du serveur | `https://photos.<domaine>` (à la maison ou par le VPN) |
+| Appli mobile → URL du serveur | `https://immich.<domaine>` (à la maison ou par le VPN) |
 
 ### Après la mise en service
-- **Supervision** : décommenter la ligne `photos` dans `compose/monitoring/prometheus/cibles/https.yml` (sonde `/api/server/ping`).
+- **Supervision** : décommenter la ligne `immich` dans `compose/monitoring/prometheus/cibles/https.yml` (sonde `/api/server/ping`).
 - **Déploiement automatique** : facultatif, ajouter `immich` à [`compose/deploiement-auto.txt`](../deploiement-auto.txt)
   (pas avant : sans `postgres-data` et les secrets sur le Mini PC, le déploiement échouerait).
 - **Sauvegarde** : voir ci-dessous.

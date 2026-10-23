@@ -9,4 +9,4 @@
     - 'https://convert.${DOMAIN}/'
     - 'https://soulsync.${DOMAIN}/'
     - 'https://ntfy.${DOMAIN}/v1/health'
-    # - 'https://photos.${DOMAIN}/api/server/ping'  # Immich : décommenter une fois la stack lancée
+    # - 'https://immich.${DOMAIN}/api/server/ping'  # Immich : décommenter une fois la stack lancée

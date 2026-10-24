@@ -10,7 +10,7 @@ name: cloudflared
 
 services:
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.0     # version figée
+    image: cloudflare/cloudflared:2026.10.3     # version figée
     container_name: cloudflared
     restart: unless-stopped                     # les anciens « docker run » ne redémarraient pas après un reboot
 

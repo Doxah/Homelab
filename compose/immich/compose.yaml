@@ -2,7 +2,8 @@
 # (https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml) et sa variante rootless.
 # Secrets : secrets.sops.env (UPLOAD_LOCATION, DB_PASSWORD) + compose/commun.sops.env (DOMAIN).
 # Lancement : scripts/compose-up.sh immich
-# Publié par Traefik : immich.<DOMAIN> (LAN et VPN, sans lan-admin : appli mobile et famille). Plus de port 2283 publié.
+# Publié par Traefik : immich.<DOMAIN>, sans lan-admin (appli mobile et famille) : LAN, VPN et Internet par le tunnel
+# Cloudflare (route « immich » dans le tunnel homelab, voir README). Plus de port 2283 publié.
 # Données :
 #   ${UPLOAD_LOCATION}  bibliothèque (originaux, miniatures, vidéos transcodées) ; propriétaire 1000:1000
 #   ./postgres-data     base PostgreSQL : disque LOCAL obligatoire (pas de partage réseau) ; propriétaire 1000:1000
@@ -80,6 +81,8 @@ services:
 
     environment:
       TZ: Europe/Paris
+      # IPv6 désactivé sur l'hôte : par défaut gunicorn écoute sur [::]:3003 et échoue (« Address family not supported »)
+      IMMICH_HOST: 0.0.0.0
 
     volumes:
       # Dossier local (pas de volume nommé) : un volume nommé est créé en root, illisible en 1000 (FAQ Immich, non-root)

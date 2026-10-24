@@ -4,9 +4,10 @@ Photos et vidéos auto-hébergées (sauvegarde automatique des téléphones, rec
 Réinstallation de l'ancienne instance (compose officiel par défaut, Immich v2) dans le dépôt, en **v3**.
 
 ```
-téléphones / PC (LAN, VPN) ──► Traefik immich.<domaine> ──► immich_server ──► immich_machine_learning (default)
-                                                               │
-                                                               └──► immich_postgres + immich_redis (réseau « interne », sans Internet)
+LAN / VPN ───────────────────────────────┐
+Internet ──► Cloudflare ──► cloudflared ─┴─► Traefik immich.<domaine> ──► immich_server ──► immich_machine_learning (default)
+                                                                            │
+                                                                            └──► immich_postgres + immich_redis (réseau « interne », sans Internet)
 ```
 
 ## Choix
@@ -15,8 +16,8 @@ téléphones / PC (LAN, VPN) ──► Traefik immich.<domaine> ──► immich
 | Base | Compose officiel v3.3.5 et sa variante rootless | Même images, mêmes noms de conteneurs que l'ancien compose : la base v2 est reprise telle quelle |
 | Version | `v3.3.5` figée (au lieu de `IMMICH_VERSION=v2`/`release`) | Mises à jour proposées par Renovate, jamais de saut de version majeure à l'insu |
 | Secrets | `UPLOAD_LOCATION`, `DB_PASSWORD` dans SOPS ; plus de `.env` ni d'`env_file` | Rien en clair sur le disque ; le reste (utilisateur, nom de la base) est en dur dans `compose.yaml` |
-| Accès | `immich.<domaine>` par Traefik, LAN et VPN, sans `lan-admin` | Appli mobile et famille. Plus de port 2283 publié |
-| Pas de tunnel Cloudflare | Accès extérieur par le VPN | Cloudflare limite le corps des requêtes à 100 Mo : les vidéos du téléphone échoueraient |
+| Accès | `immich.<domaine>` par Traefik, sans `lan-admin` : LAN, VPN et Internet (tunnel Cloudflare) | Appli mobile et famille. Plus de port 2283 publié |
+| Tunnel Cloudflare | Route `immich` dans le tunnel `homelab` (stack `cloudflared`) | Accès depuis l'extérieur sans VPN. Limite de 100 Mo par requête : voir « Accès depuis Internet » |
 | Transcodage | Intel QuickSync (`/dev/dri`, groupe `render`), comme Jellyfin | À activer aussi dans l'interface |
 | Machine learning | CPU | OpenVINO (iGPU) possible plus tard, voir le commentaire dans `compose.yaml` |
 | Sauvegarde de la base | Dumps automatiques d'Immich dans `./data/db-dumps` (disque local) | Copie cohérente sans arrêter la stack ; Backrest les lit sans secret |
@@ -112,13 +113,37 @@ Ouvrir `https://immich.<domaine>` tout de suite : **le premier compte créé est
 pfSense → *Services → DNS Resolver → Host Overrides* : `immich.<domaine>` → IP du Mini PC.
 Retirer l'ancienne règle pare-feu vers le port 2283 s'il y en avait une.
 
+### Accès depuis Internet (tunnel Cloudflare)
+Route à ajouter dans le tunnel `homelab` (règle générale : [`compose/cloudflared/README.md`](../cloudflared/README.md)) :
+Zero Trust → Networks → Tunnels → *homelab* → Public Hostname → Add :
+
+| Champ | Valeur |
+|---|---|
+| Subdomain / Domain | `immich` / `<domaine>` |
+| Service | `HTTPS` — `traefik:8443` |
+| Additional settings → TLS → **Origin Server Name** | `immich.<domaine>` (sinon refusé par Traefik, `sniStrict`) |
+
+Aucun changement dans les compose : le router Traefik `immich` n'a pas `lan-admin`, il accepte le trafic de cloudflared.
+
+**Même nom, deux chemins** : à la maison, le host override pfSense envoie `immich.<domaine>` directement sur Traefik
+(pas de Cloudflare, pas de limite) ; dehors, le DNS public pointe sur le tunnel. Une seule URL dans l'appli mobile.
+
+**Limite de 100 Mo** par requête chez Cloudflare (plan gratuit, non modifiable) : depuis l'extérieur, une vidéo plus lourde
+échoue à l'envoi. La sauvegarde du téléphone la reprend une fois à la maison (ou par le VPN) ; consulter et partager
+fonctionne partout.
+
+Durcissement conseillé (Immich est alors exposé sur Internet) :
+- comptes avec des mots de passe forts, inscription publique fermée (par défaut, seul l'admin crée les comptes) ;
+- Cloudflare → *Security → WAF → Custom rules* : bloquer les pays autres que la France sur `immich.<domaine>` ;
+- tester depuis la 4G : `curl -sI https://immich.<domaine>/api/server/ping`.
+
 ### Réglages dans l'interface (Administration → Paramètres)
 | Réglage | Valeur |
 |---|---|
 | Paramètres du serveur → Domaine externe | `https://immich.<domaine>` (liens de partage) |
 | Transcodage vidéo → Accélération matérielle | Quick Sync, accélération du décodage activée |
 | Sauvegarde de la base | Activée (par défaut), 02:00, garder 14 : écrit dans `./data/db-dumps` |
-| Appli mobile → URL du serveur | `https://immich.<domaine>` (à la maison ou par le VPN) |
+| Appli mobile → URL du serveur | `https://immich.<domaine>` (même URL partout, voir « Accès depuis Internet ») |
 
 ### Après la mise en service
 - **Supervision** : décommenter la ligne `immich` dans `compose/monitoring/prometheus/cibles/https.yml` (sonde `/api/server/ping`).
@@ -155,6 +180,9 @@ la version du serveur (même majeure et mineure).
 | Postgres : `data directory ... has wrong ownership` / `could not open file` | `postgres-data` pas en 1000:1000 (étape A.3) |
 | Postgres : `password authentication failed` | `DB_PASSWORD` différent de celui de l'ancienne base |
 | ML : `Permission denied: '/cache/...'` | `data/model-cache` créé par Docker en root : `sudo chown -R 1000:1000 data/model-cache` |
-| Vidéos du téléphone qui n'arrivent pas | Envoi par un tunnel Cloudflare (100 Mo max) au lieu du LAN/VPN |
+| Vidéos du téléphone qui n'arrivent pas (hors de la maison) | Envoi par le tunnel Cloudflare (100 Mo max) : elles partent au retour sur le LAN/VPN |
+| `502` / « Bad gateway » depuis Internet seulement | Route du tunnel sans *Origin Server Name* `immich.<domaine>`, ou service en `http://` au lieu de `HTTPS` |
+| `502` depuis Internet alors que la route est bonne | Un ancien connecteur cloudflared (autre serveur) tourne encore sur le même tunnel : Cloudflare répartit le trafic entre les connecteurs. Zero Trust → Tunnels → *homelab* → Connectors : il ne doit y avoir que le Mini PC (vécu en oct. 2026) |
 | Transcodage matériel en échec | GID de `render` différent de 105 : `getent group render` et adapter `group_add` |
+| ML : `connection to ('::', 3003) failed: [Errno 97] Address family not supported` | IPv6 désactivé sur l'hôte : `IMMICH_HOST: 0.0.0.0` (déjà en place dans `compose.yaml`) |
 | Le serveur refuse de démarrer après la mise à jour v3 | Extension `vectors` (pgvecto.rs) : voir étape A.6 |

@@ -4,7 +4,7 @@ Un seul tunnel Cloudflare pour tout le homelab. Il remplace les deux conteneurs 
 (`docker run cloudflare/cloudflared`, un pour Jellyfin, un pour le site), qui ne redémarraient pas après un reboot.
 
 ```
-Internet → Cloudflare → cloudflared (réseau proxy) → Traefik :8443 → videos / demande-videos / site…
+Internet → Cloudflare → cloudflared (réseau proxy) → Traefik :8443 → videos / demande-videos / immich / site…
 ```
 
 | | |

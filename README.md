@@ -12,8 +12,7 @@ Ce dépôt est aussi mon support d'apprentissage DevOps : l'objectif est de pouv
 | `ansible/` | Playbooks et rôles (à venir) |
 | `terraform/` | Provisionnement Proxmox et Cloudflare (à venir) |
 | `compose/` | Stacks Docker Compose du Mini PC, secrets chiffrés avec SOPS ([modèle](compose/_modele/)) |
-| `mcp/` | Serveurs MCP pour Claude (GLPI), secrets chiffrés avec SOPS |
-| `scripts/` | Scripts utilitaires (lancement des stacks et des serveurs MCP avec leurs secrets) |
+| `scripts/` | Scripts utilitaires (lancement des stacks avec leurs secrets) |
 | `k8s/` | Manifests et config GitOps du futur cluster K3s (à venir) |
 
 ## Vue d'ensemble

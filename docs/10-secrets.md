@@ -79,8 +79,8 @@ Sous Windows, l'éditeur est défini par `SOPS_EDITOR` (voir Installation).
 ## Fichiers de secrets pré-remplis
 Une nouvelle stack est livrée avec son `secrets.sops.env` **déjà chiffré**, contenant une ligne commentée par variable attendue :
 ```dotenv
-# GLPI_URL=https://glpi.example.org
-# GLPI_APP_TOKEN=<jeton du client API>
+# APP_URL=https://app.example.org
+# APP_API_TOKEN=<jeton de l'API>
 ```
 SOPS chiffre aussi les commentaires (le hook pre-commit est satisfait) et seules les clés publiques sont nécessaires pour créer le fichier.
 Pour le compléter : `sops <fichier>`, décommenter chaque ligne, remplacer la valeur. Tant qu'une variable reste commentée, `${VAR:?}` bloque le lancement.

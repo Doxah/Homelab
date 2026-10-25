@@ -45,7 +45,7 @@ Exclus du plan `jellyfin` (re-téléchargeable ou sans valeur) : `cache/`, `log/
 Jellyfin les retélécharge, au prix d'un rescan), `transcodes/`, `MediaCover/`, `logs/`, `logs.db`, `Backups/` des *arr, `gluetun/`.
 
 Volontairement **non sauvegardé** : médias et musique des NAS (plus tard, avec le NAS central), Prometheus/Loki/Alloy
-(volumineux, reconstructible), ntfy (comptes déclaratifs dans Git), ConvertX, webhook, cloudflared (tout est dans SOPS), GLPI (arrêté).
+(volumineux, reconstructible), ntfy (comptes déclaratifs dans Git), ConvertX, webhook, cloudflared (tout est dans SOPS).
 Le code et les secrets chiffrés sont sur GitHub.
 
 Maintenance du dépôt : `prune` le dimanche à 06:30 (si plus de 10 % d'espace inutilisé), `check` le 1er du mois à 07:00

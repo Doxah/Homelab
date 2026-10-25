@@ -33,7 +33,7 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 | `acme.json` Traefik, Grafana | `compose/traefik/data`, `compose/monitoring/data/grafana` | Faible | Backrest `infra` |
 | Médias famille, musique, données perso des NAS | NAS | À qualifier | **Pas encore** : avec le NAS central |
 | Médias Jellyfin | QNAP | Faible (re-téléchargeables) | Non |
-| Prometheus, Loki, ntfy, ConvertX, GLPI (arrêté) | Mini PC | Aucune / déclaratif | Non |
+| Prometheus, Loki, ntfy, ConvertX | Mini PC | Aucune / déclaratif | Non |
 
 ## Lacunes
 - Aucune copie hors site : tout est à la maison (incendie, vol, ransomware). Prévu : NAS externalisé, réplication non effaçable.

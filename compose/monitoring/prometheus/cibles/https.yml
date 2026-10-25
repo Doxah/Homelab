@@ -5,7 +5,6 @@
     - 'https://vault.${DOMAIN}/alive'
     - 'https://videos.${DOMAIN}/health'
     - 'https://demande-videos.${DOMAIN}/api/v1/status'
-    # - 'https://glpi.${DOMAIN}/'                 # GLPI éteint : décommenter au redémarrage de la stack
     - 'https://convert.${DOMAIN}/'
     - 'https://soulsync.${DOMAIN}/'
     - 'https://ntfy.${DOMAIN}/v1/health'

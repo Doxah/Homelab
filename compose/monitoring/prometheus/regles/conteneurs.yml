@@ -22,6 +22,16 @@ groups:
           summary: "Redémarré {{ $value }} fois en 15 minutes"
           description: "Lire ses journaux dans Grafana (Explore › Loki, {container=\"{{ $labels.name }}\"})."
 
+      # Le noyau a tué un processus du conteneur (mem_limit atteint). Souvent invisible autrement : Docker relance
+      # le conteneur aussitôt. Déclenche l'agent de dépannage (compose/agent).
+      - alert: ConteneurTueOOM
+        expr: increase(container_oom_events_total{name!=""}[15m]) > 0
+        labels:
+          severity: critique
+        annotations:
+          summary: "Tué par manque de mémoire (OOM)"
+          description: "mem_limit atteint : le relever dans son compose.yaml ou chercher une fuite mémoire."
+
       # Tous les conteneurs ont un mem_limit : au-delà, le noyau tue le processus (OOM).
       - alert: ConteneurProcheLimiteMemoire
         expr: |

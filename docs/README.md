@@ -17,6 +17,7 @@ Documentation publique. Les adresses IP, règles de pare-feu, configuration VPN 
 | [11-pfsense-acme.md](11-pfsense-acme.md) | Certificat Let's Encrypt du webGUI pfSense (ACME + DNS Cloudflare) |
 | [13-compose-up.md](13-compose-up.md) | Lancer les stacks avec leurs secrets (`scripts/compose-up.sh`) |
 | [14-deploiement-auto.md](14-deploiement-auto.md) | Déploiement automatique : push GitHub → webhook → Mini PC |
+| [15-agent-depannage.md](15-agent-depannage.md) | Agent IA de dépannage (Claude Code, abonnement Pro) : diagnostic, relance, PR, rapport |
 
 ## Principes
 - Docker Compose plutôt que LXC (les LXC sont jugés opaques).

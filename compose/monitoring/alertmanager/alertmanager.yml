@@ -8,9 +8,22 @@ route:
   group_interval: 5m
   repeat_interval: 12h                      # une alerte qui dure est rappelée deux fois par jour
   routes:
+    # Agent de dépannage (compose/agent) : reçoit une COPIE des alertes qu'il sait traiter (continue: true),
+    # le téléphone les reçoit toujours par les routes suivantes. Liste à garder cohérente avec ALERTES_GEREES de l'agent.
+    # Un silence posé dans Alertmanager (arrêt volontaire) empêche aussi l'agent de se lancer.
+    - matchers: ['alertname=~"Conteneur.*|ServiceInjoignable|TunnelCloudflareCoupe|TraefikErreurs5xx"']
+      receiver: agent
+      continue: true
+      group_by: [alertname, name, instance]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
     - matchers: ['severity="critique"']
       receiver: ntfy-critique
       repeat_interval: 4h
+    # Tout le reste. Indispensable depuis la route agent : une alerte qui n'a correspondu qu'à une route en
+    # « continue: true » n'est PAS renvoyée au receiver par défaut de la racine.
+    - receiver: ntfy
 
 receivers:
   # Modèle maison compose/ntfy/modeles/homelab-alertes.yml : titre = appareil, puis statut et description.
@@ -29,6 +42,17 @@ receivers:
         http_config:
           authorization:
             credentials: ${NTFY_TOKEN_ALERTMANAGER}
+  # Agent de dépannage, joint sur le réseau monitoring_default. Jeton partagé : AGENT_TOKEN_ALERTMANAGER
+  # (même valeur dans compose/monitoring/secrets.sops.env et compose/agent/secrets.sops.env).
+  - name: agent
+    webhook_configs:
+      - url: http://agent:8080/alertes
+        send_resolved: false                    # l'agent ne traite que les déclenchements
+        max_alerts: 20
+        timeout: 10s
+        http_config:
+          authorization:
+            credentials: ${AGENT_TOKEN_ALERTMANAGER}
 
 # Une alerte critique masque l'avertissement de même nom sur la même cible (ex. DisquePlein masque DisquePresquePlein)
 inhibit_rules:

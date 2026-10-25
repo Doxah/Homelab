@@ -1,0 +1,4 @@
+# Seul agent/ et le Dockerfile entrent dans l'image : jamais les données (token de session, rapports, clone) ni les secrets
+*
+!Dockerfile
+!agent/

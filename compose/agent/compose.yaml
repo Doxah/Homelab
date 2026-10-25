@@ -1,0 +1,153 @@
+# Agent de dépannage : Claude Code (abonnement Pro, sans clé API) diagnostique les pannes signalées par Alertmanager,
+# relance ce qui est autorisé, propose les correctifs en Pull Request et envoie un rapport (ntfy + Markdown).
+# Secrets : secrets.sops.env (CLAUDE_CODE_OAUTH_TOKEN, AGENT_TOKEN_ALERTMANAGER, NTFY_TOKEN, GITHUB_TOKEN, DOCKER_GID)
+#           + compose/commun.sops.env (DOMAIN).
+# Lancement : scripts/compose-up.sh agent up -d --build   (après monitoring : réseau monitoring_default)
+# Données : ./data/{home,depot,rapports,etat,actions/demandes,actions/resultats}, propriétaire 1000:1000. Jamais dans Git.
+# Documentation : README.md et docs/15-agent-depannage.md
+#
+# Principe (moindre privilège, même logique que webhook → deploiement-auto.sh) :
+#   Alertmanager ──POST /alertes (jeton)──► agent ──claude -p──► outils en LECTURE (API Docker via socket-proxy-agent
+#   en GET seulement, Loki, Prometheus, clone public du dépôt)
+#   Pour agir, Claude DÉPOSE une demande dans ./data/actions/demandes ; sur l'hôte, scripts/agent-actions.sh (cron)
+#   la valide (compose/agent-actions.txt) et lance scripts/compose-up.sh. Le conteneur n'a ni socket Docker en écriture,
+#   ni clé SOPS, ni accès au dépôt du Mini PC.
+#   Correctif de fichier → commit sur une branche agent/… du clone → Pull Request (token GitHub limité au dépôt) → Eliot merge.
+name: agent
+
+services:
+  agent:
+    build:
+      context: .
+      args:
+        CLAUDE_CODE_VERSION: "2.1.303"            # renovate: datasource=npm depName=@anthropic-ai/claude-code
+    image: homelab/agent:2.1.303
+    container_name: agent
+    restart: unless-stopped
+
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    mem_limit: 1536m                              # Claude Code ≈ 300 Mo + outils ; marge pour les longues sessions
+    cpus: 1.5
+    pids_limit: 300
+
+    environment:
+      TZ: Europe/Paris
+      # --- Abonnement Claude Pro UNIQUEMENT : token OAuth longue durée (claude setup-token).
+      # Ne JAMAIS ajouter ANTHROPIC_API_KEY : l'agent refuse de démarrer si elle existe (facturation à l'usage).
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:?secret manquant}
+      AGENT_TOKEN_ALERTMANAGER: ${AGENT_TOKEN_ALERTMANAGER:?secret manquant}
+      # --- Rapports
+      NTFY_URL: https://ntfy.${DOMAIN:?secret manquant}
+      NTFY_TOPIC: homelab-agent
+      NTFY_TOKEN: ${NTFY_TOKEN:?secret manquant}      # compte « scripts » (droit homelab-*:wo)
+      # --- Pull Requests (vide = correctif gardé en .patch dans data/rapports)
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      DEPOT_GITHUB: Doxah/Homelab
+      DOMAINE_INTERDIT: ${DOMAIN:?secret manquant}    # un correctif qui contient le domaine est refusé
+      # --- Sources (lecture seule)
+      DOCKER_API: http://socket-proxy-agent:2375
+      LOKI_URL: http://loki:3100
+      PROM_URL: http://prometheus:9090
+      # --- Réglages (valeurs par défaut de agent.py, voir README.md)
+      MODELE: sonnet                              # sonnet ménage le quota Pro ; opus pour des diagnostics plus poussés
+      MODELE_QUOTIDIEN: sonnet
+      TOURS_MAX_INCIDENT: "40"
+      TOURS_MAX_QUOTIDIEN: "50"
+      DUREE_MAX_MIN: "20"
+      MAX_DIAGNOSTICS_JOUR: "8"                   # plafond d'incidents/jour (quota partagé avec ton usage de Claude)
+      DELAI_ENTRE_DIAGNOSTICS_MIN: "120"          # même alerte sur le même conteneur : un diagnostic toutes les 2 h au plus
+      DELAI_REGROUPEMENT_S: "90"                  # les alertes arrivées ensemble = un seul diagnostic
+      HEURE_RAPPORT_QUOTIDIEN: "07:30"            # après les sauvegardes de 5 h ; vide = désactivé
+      SURVEILLER_UNHEALTHY: "1"                   # healthcheck Docker en échec → diagnostic (cAdvisor ne l'expose pas)
+      RECHERCHE_WEB: "1"                          # WebSearch pour les bugs connus (pas de WebFetch)
+      ALERTES_GEREES: Conteneur.*|ServiceInjoignable|TunnelCloudflareCoupe|TraefikErreurs5xx
+
+    volumes:
+      - type: bind
+        source: ./data/home                       # ~/.claude.json et ~/.claude/ de Claude Code (pas de secret dedans)
+        target: /home/agent
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./data/depot                      # clone public de GitHub, remis à zéro avant chaque exécution
+        target: /data/depot
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./data/rapports                   # rapports Markdown (+ correctifs refusés en .patch)
+        target: /data/rapports
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./data/etat                       # file d'attente, anti-rebond, transcriptions complètes (journaux/)
+        target: /data/etat
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./data/actions                    # demandes ↔ résultats, échangés avec scripts/agent-actions.sh
+        target: /actions
+        bind: {create_host_path: false}
+      - type: bind
+        source: ../backrest/data/backrest/etat-hooks   # conteneurs arrêtés par Backrest : leurs alertes sont ignorées
+        target: /etat-backrest
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ../monitoring/data/textfile       # métriques homelab_agent_* (collecteur textfile de node_exporter)
+        target: /textfile
+        bind: {create_host_path: false}
+
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/sante', timeout=3)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # monitoring : Alertmanager → agent:8080, agent → loki:3100 et prometheus:9090, et sortie Internet
+    # (API Claude, GitHub, ntfy). Volontairement PAS sur le réseau proxy (rien à publier, rien à joindre derrière Traefik).
+    networks: [socket, monitoring]
+    depends_on: [socket-proxy-agent]
+
+  # API Docker en LECTURE SEULE et filtrée pour l'agent : liste, détail, journaux, statistiques, événements.
+  # Refusé : toute écriture (POST/DELETE), archive/export (copie de fichiers des conteneurs), exec, images, volumes.
+  socket-proxy-agent:
+    image: wollomatic/socket-proxy:1.13.1
+    container_name: socket-proxy-agent
+    restart: unless-stopped
+    user: "65534:${DOCKER_GID:?secret manquant}"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 50
+    command:
+      - -loglevel=info
+      - -listenip=0.0.0.0
+      - -allowfrom=agent                          # seul le conteneur agent
+      - -allowHEAD=/(v1\..{1,2}/)?_ping
+      - -allowGET=/(v1\..{1,2}/)?(_ping|version|events|containers/json|containers/[a-zA-Z0-9_.-]+/(json|logs|stats|top))
+      - -allowhealthcheck
+      - -watchdoginterval=3600
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    networks: [socket]                            # JAMAIS sur monitoring ni proxy
+
+networks:
+  socket:
+    internal: true                                # agent <-> socket-proxy-agent, sans accès Internet
+  monitoring:
+    external: true
+    name: monitoring_default                      # créé par la stack monitoring

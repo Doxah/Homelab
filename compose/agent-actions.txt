@@ -1,0 +1,21 @@
+# Liste blanche des actions de l'agent de dépannage (lue par scripts/agent-actions.sh sur l'hôte, voir docs/15-agent-depannage.md).
+# Format :  <stack> : <actions autorisées> [!service_exclu ...]
+#   restart  redémarre les conteneurs existants (même configuration, rien n'est recréé)
+#   up       recrée depuis le compose.yaml de main (scripts/compose-up.sh <stack> up -d [service])
+#   !svc     ce service n'est jamais touché ; l'agent doit alors toujours préciser le service visé
+# Une stack absente = l'agent peut seulement diagnostiquer et proposer (rapport, PR).
+# L'agent ne peut pas modifier ce fichier (permissions + refus des PR qui le touchent).
+#
+# Volontairement absentes :
+#   traefik, cloudflared   une erreur coupe tout l'accès (y compris celui de l'agent à ntfy)
+#   ntfy                   coupe les notifications, dont le rapport de l'agent
+#   vaultwarden            les mots de passe : intervention humaine uniquement
+#   webhook, arcane        outillage du déploiement
+#   agent                  l'agent ne se répare pas lui-même
+convertx    : restart up
+discopanel  : restart
+immich      : restart up
+soulsync    : restart up
+backrest    : restart
+monitoring  : restart up
+jellyfin    : restart !gluetun          # recréer/relancer gluetun change le port forwardé et coupe les lectures

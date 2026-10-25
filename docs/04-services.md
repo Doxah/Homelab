@@ -13,6 +13,7 @@
 | **DiscoPanel** | Panel des serveurs Minecraft |
 | **Supervision** | Prometheus, Grafana, Loki, Alertmanager ([stack](../compose/monitoring/)) |
 | **ntfy** | Notifications push des alertes et des scripts ([stack](../compose/ntfy/)) |
+| **Agent de dépannage** | Claude Code (abonnement Pro) : diagnostique les pannes signalées par Alertmanager, relance ce qui est autorisé, propose les correctifs en PR, rapport quotidien ([stack](../compose/agent/), [doc](15-agent-depannage.md)) |
 | **2× serveur CS2** | Tests, à supprimer (trop d'espace disque) |
 | **Immich** | Photos et vidéos (sauvegarde des téléphones), v3, en réinstallation : reprise de la base v2 ([stack](../compose/immich/)) |
 

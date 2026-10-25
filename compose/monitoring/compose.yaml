@@ -92,6 +92,7 @@ services:
     environment:
       TZ: Europe/Paris
       NTFY_TOKEN_ALERTMANAGER: ${NTFY_TOKEN_ALERTMANAGER:?secret manquant}
+      AGENT_TOKEN_ALERTMANAGER: ${AGENT_TOKEN_ALERTMANAGER:?secret manquant}   # receiver « agent » (compose/agent)
       DOMAIN: ${DOMAIN:?secret manquant}
     volumes:
       - ./rendre-modeles.sh:/usr/local/bin/rendre-modeles.sh:ro

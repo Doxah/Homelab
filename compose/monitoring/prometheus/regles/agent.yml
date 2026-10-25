@@ -1,0 +1,28 @@
+# Alertes sur l'agent de dépannage (compose/agent) : métriques écrites par l'agent dans data/textfile/agent.prom.
+# Ces alertes ne déclenchent pas l'agent (noms hors de ALERTES_GEREES) : elles vont seulement sur le téléphone.
+groups:
+  - name: agent
+    rules:
+      # Dead man's switch de l'agent : le rapport quotidien (07:30) n'est plus produit.
+      - alert: AgentRapportQuotidienAbsent
+        expr: |
+          time() - homelab_agent_derniere_execution_timestamp_seconds{type="quotidien"} > 26 * 3600
+        for: 10m
+        labels:
+          severity: avertissement
+          nom: agent
+        annotations:
+          summary: "Pas de rapport quotidien depuis plus de 26 h"
+          description: "Conteneur agent arrêté, token Claude expiré (claude setup-token) ou quota atteint. Voir docker logs agent."
+
+      # Rapport quotidien terminé en erreur (token expiré, Claude injoignable…). Les échecs d'incident sont déjà
+      # notifiés par l'agent lui-même ; le rapport quotidien suivant remet la métrique à 1.
+      - alert: AgentEnEchec
+        expr: homelab_agent_derniere_execution_succes{type="quotidien"} == 0
+        for: 5m
+        labels:
+          severity: avertissement
+          nom: agent
+        annotations:
+          summary: "Le dernier rapport quotidien de l'agent a échoué"
+          description: "Voir docker logs agent et compose/agent/data/etat/journaux/ sur le Mini PC."

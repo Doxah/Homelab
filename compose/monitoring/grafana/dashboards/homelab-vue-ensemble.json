@@ -47,7 +47,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up{job!~\"prometheus|monitoring\"}",
+          "expr": "up{job!~\"prometheus|monitoring|https\"} or probe_success{job=\"https\"}",
           "legendFormat": "{{job}} {{nom}}",
           "refId": "A",
           "instant": true,

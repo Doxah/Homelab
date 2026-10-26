@@ -304,6 +304,137 @@
       "description": "Temps écoulé depuis la dernière sauvegarde réussie (alerte au-delà de 26 h)."
     },
     {
+      "type": "table",
+      "title": "Alertes en cours",
+      "id": 26,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "description": "Alertes Prometheus actives (firing). Le texte détaillé (summary) est dans Alertmanager et les notifications ntfy.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "ALERTS_FOR_STATE * 1000",
+          "format": "table",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "job": true,
+              "instance": true,
+              "hrStorageIndex": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "severity": 0,
+              "alertname": 1,
+              "nom": 2,
+              "tache": 3,
+              "hrStorageDescr": 4,
+              "Value": 5
+            },
+            "renameByName": {
+              "severity": "Sévérité",
+              "alertname": "Alerte",
+              "nom": "Hôte",
+              "tache": "Tâche",
+              "hrStorageDescr": "Volume",
+              "Value": "Depuis"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "noValue": "Aucune alerte"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Depuis"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeFromNow"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sévérité"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critique": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "avertissement": {
+                        "color": "orange",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Sévérité",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
       "type": "row",
       "title": "Hôtes : Mini PC et pfSense",
       "id": 6,
@@ -312,7 +443,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 13
       },
       "panels": []
     },
@@ -328,7 +459,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 8
+        "y": 14
       },
       "targets": [
         {
@@ -376,7 +507,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 8
+        "y": 14
       },
       "targets": [
         {
@@ -425,7 +556,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 8
+        "y": 14
       },
       "targets": [
         {
@@ -495,7 +626,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 22
       },
       "targets": [
         {
@@ -551,7 +682,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 22
       },
       "targets": [
         {
@@ -591,7 +722,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 30
       },
       "panels": []
     },
@@ -607,7 +738,7 @@
         "h": 10,
         "w": 8,
         "x": 0,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -677,7 +808,7 @@
         "h": 10,
         "w": 8,
         "x": 8,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -720,7 +851,7 @@
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 25
+        "y": 31
       },
       "targets": [
         {
@@ -760,7 +891,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 41
       },
       "panels": []
     },
@@ -776,7 +907,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 36
+        "y": 42
       },
       "targets": [
         {
@@ -846,7 +977,7 @@
         "h": 8,
         "w": 4,
         "x": 8,
-        "y": 36
+        "y": 42
       },
       "targets": [
         {
@@ -935,7 +1066,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 36
+        "y": 42
       },
       "targets": [
         {
@@ -978,7 +1109,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 36
+        "y": 42
       },
       "targets": [
         {
@@ -1018,7 +1149,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 50
       },
       "panels": []
     },
@@ -1034,7 +1165,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 51
       },
       "targets": [
         {
@@ -1077,7 +1208,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 51
       },
       "targets": [
         {
@@ -1117,7 +1248,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 59
       },
       "panels": []
     },
@@ -1133,7 +1264,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 60
       },
       "targets": [
         {

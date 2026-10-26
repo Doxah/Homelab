@@ -299,6 +299,7 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"   # sinon, en read_only, la mise à jour des plugins intégrés échoue et les retire (Prometheus disparu le 26/10)
       GF_DATE_FORMATS_DEFAULT_TIMEZONE: Europe/Paris
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

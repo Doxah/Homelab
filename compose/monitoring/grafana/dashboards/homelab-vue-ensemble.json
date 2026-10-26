@@ -369,7 +369,7 @@
               "type": "auto"
             }
           },
-          "noValue": "Aucune alerte"
+          "noValue": "—"
         },
         "overrides": [
           {

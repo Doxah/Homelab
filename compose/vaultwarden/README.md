@@ -30,9 +30,8 @@ sops exec-env secrets.sops.env 'openssl req -x509 -newkey ec -pkeyopt ec_paramge
   -keyout tls/key.pem -out tls/cert.pem -days 3650 -subj "/CN=vaultwarden" \
   -addext "subjectAltName=DNS:vaultwarden,DNS:${DOMAIN#https://},IP:$BIND_IP"'
 
-# Données : base sauvegardée avec `sqlite3 .backup` (sans fichiers -wal/-shm) + rsa_key.pem
-cp /chemin/vw-backup/db.sqlite3 data/
-cp /chemin/vw-backup/rsa_key.pem data/
+# Données : restaurer le dernier snapshot du plan `vaultwarden` de Backrest (db.sqlite3, -wal, -shm et rsa_key.pem ensemble)
+cp -a /chemin/restauration/sources/vaultwarden/. data/
 # data/ et tls/ doivent appartenir à l'UID 1000 (= conteneur). Le compte administrateur l'est normalement
 # (vérifier : id -u), donc rien à faire et pas de sudo. Sinon : chown -R 1000:1000 data tls
 chmod 600 tls/key.pem
@@ -41,78 +40,15 @@ cd ../.. && scripts/compose-up.sh vaultwarden
 ```
 
 ## Sauvegarde
-**Depuis 2026-10 : [Backrest](../backrest/README.md)**, plan `vaultwarden` (5h, conteneur arrêté pendant la copie, rétention 30 j / 8 sem / 12 mois).
-Le script ci-dessous tourne encore en parallèle jusqu'au premier test de restauration depuis Backrest, puis sera retiré
-(voir « Retrait de l'ancien script Vaultwarden » dans le README de Backrest).
+[Backrest](../backrest/README.md), plan `vaultwarden` : chaque nuit à 5h, conteneur arrêté pendant la copie (base SQLite et WAL
+cohérents), dépôt restic chiffré sur le Synology, rétention 30 j / 8 sem / 12 mois. Alerte `SauvegardeEnRetard` au-delà de 26 h.
 
-Ne jamais copier `db.sqlite3` à chaud : les modifications récentes sont dans `db.sqlite3-wal` tant qu'il n'y a pas eu de checkpoint
-(constaté sur le CT : `db.sqlite3` vieux de deux semaines, WAL de 3 Mo). On utilise `sqlite3 .backup`, qui produit une base complète et cohérente.
+L'ancien script `scripts/vaultwarden-backup.sh` (cron 3h15, archive + rsync vers le Synology) a été retiré le 2026-10-26,
+après un test de restauration réussi depuis Backrest.
 
-Script : [`scripts/vaultwarden-backup.sh`](../../scripts/vaultwarden-backup.sh) (base + `rsa_key.pem` + `attachments/`/`sends/` s'ils existent,
-contrôle d'intégrité, archive datée, rétention locale, copie rsync vers le NAS).
-
-Prérequis (une fois, par un compte sudoer) : `apt install sqlite3 rsync`.
-Variables à ajouter dans `secrets.sops.env` :
-```dotenv
-# BACKUP_DIR=/home/<utilisateur>/backups/vaultwarden
-# BACKUP_KEEP_DAYS=14
-# RSYNC_DEST=syno-backup:/volume1/<partage>/vaultwarden
-```
-
-### Copie vers le Synology (rsync via SSH, clé dédiée)
-Sur le Mini PC, avec l'utilisateur qui lance la stack :
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/vw-backup -N "" -C "vaultwarden-backup@mini-pc"   # sans phrase de passe : lancé par cron
-cat >> ~/.ssh/config <<'CFG'
-Host syno-backup
-    HostName <ip-du-nas>
-    Port <port-ssh>
-    User <utilisateur-de-sauvegarde>
-    IdentityFile ~/.ssh/vw-backup
-    IdentitiesOnly yes
-CFG
-chmod 600 ~/.ssh/config
-```
-Sur le NAS (DSM 7.2) :
-1. Panneau de configuration → Terminal & SNMP : SSH activé.
-2. Panneau de configuration → Utilisateur → Avancé : activer le service d'accueil de l'utilisateur.
-3. Services de fichiers → rsync : activer le service rsync ; Privilèges des applications → rsync : autoriser l'utilisateur de sauvegarde. Droits en écriture sur le dossier cible uniquement.
-4. En SSH avec un compte administrateur puis `sudo -i`, installer la clé publique :
-   ```bash
-   H=/var/services/homes/<utilisateur-de-sauvegarde>
-   mkdir -p $H/.ssh
-   echo 'from="<ip-du-mini-pc>",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding <contenu de vw-backup.pub>' >> $H/.ssh/authorized_keys
-   chown -R <utilisateur-de-sauvegarde>:users $H/.ssh
-   chmod 755 $H && chmod 700 $H/.ssh && chmod 600 $H/.ssh/authorized_keys
-   ```
-Test depuis le Mini PC : `rsync -av /etc/hostname syno-backup:/volume1/<partage>/vaultwarden/` (la 1re connexion demande de valider l'empreinte du NAS).
-
-Planification (crontab de l'utilisateur qui lance la stack) :
-```cron
-15 3 * * * /home/<utilisateur>/homelab/scripts/vaultwarden-backup.sh >> /home/<utilisateur>/backups/vaultwarden.log 2>&1
-```
-
-### Test de restauration (depuis la copie du NAS, à refaire régulièrement)
-```bash
-mkdir -p /tmp/vw-restore && cd /tmp/vw-restore
-rsync syno-backup:/volume1/<partage>/vaultwarden/                                    # lister les archives
-rsync syno-backup:/volume1/<partage>/vaultwarden/vaultwarden-<date>.tar.gz .
-tar xzf vaultwarden-<date>.tar.gz && ls -ln
-sqlite3 db.sqlite3 "PRAGMA integrity_check; SELECT count(*) FROM users; SELECT count(*) FROM ciphers;"
-cmp rsa_key.pem ~/Homelab/compose/vaultwarden/data/rsa_key.pem && echo "rsa_key identique"
-
-# Instance jetable sur un autre port, mêmes options de sécurité que la stack
-docker run --rm -d --name vw-restore-test \
-  --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges:true --read-only --tmpfs /tmp \
-  -v /tmp/vw-restore:/data -v ~/Homelab/compose/vaultwarden/tls:/tls:ro \
-  -e DOMAIN=https://<ip-du-mini-pc>:18443 -e SIGNUPS_ALLOWED=false -e ROCKET_PORT=8443 \
-  -e ROCKET_TLS='{certs="/tls/cert.pem",key="/tls/key.pem"}' \
-  -p <ip-du-mini-pc>:18443:8443 vaultwarden/server:1.37.0
-```
-Se connecter sur `https://<ip-du-mini-pc>:18443` (navigation privée), vérifier le nombre d'entrées, ne rien modifier. Puis :
-```bash
-docker stop vw-restore-test && rm -rf /tmp/vw-restore
-```
+### Test de restauration (à refaire régulièrement)
+Procédure : « Test régulier : Vaultwarden » dans le [README de Backrest](../backrest/README.md). Dernier test : 2026-10-26,
+snapshot du jour, `integrity_check` ok, 1 utilisateur et 563 éléments comme la base en service, `rsa_key.pem` présente.
 
 ## Bascule depuis le CT
 Pas d'accès externe : Vaultwarden n'est joint qu'en interne, via npmplus. Le CT n'avait ni `DOMAIN`, ni SMTP, ni `config.json`, ni pièces jointes.

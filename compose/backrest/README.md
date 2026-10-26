@@ -3,7 +3,7 @@
 Sauvegarde versionnée et chiffrée des données du Mini PC avec [restic](https://restic.net/), pilotée par
 [Backrest](https://github.com/garethgeorge/backrest) : planification, rétention, prune et check dans une interface web,
 navigation dans les snapshots et restauration fichier par fichier. Remplace Portabase (qui ne sauvegardait que le volume d'Arcane)
-et, après un test de restauration, le script `scripts/vaultwarden-backup.sh`.
+et le script `scripts/vaultwarden-backup.sh` (retiré le 2026-10-26 après un test de restauration réussi).
 
 ```
                       05:00-05:45, un plan après l'autre
@@ -206,12 +206,11 @@ restauration des plans dans `compose/<stack>/…`, puis `scripts/compose-up.sh <
 
 Supprimer un plan : supprimer aussi `compose/monitoring/data/textfile/backrest-<plan>.prom`, sinon `SauvegardeEnRetard` se déclenche.
 
-## Retrait de l'ancien script Vaultwarden
-Après un test de restauration réussi depuis Backrest (voir plus haut) :
-1. `crontab -e` : supprimer la ligne `vaultwarden-backup.sh`.
-2. `rm ~/Homelab/compose/monitoring/data/textfile/vaultwarden.prom` (l'alerte `SauvegardeVaultwardenInconnue` reste satisfaite par
-   la métrique de Backrest, `tache="vaultwarden"`).
-3. Les archives déjà sur le Synology peuvent rester (elles ne sont plus renouvelées).
+## Retrait de l'ancien script Vaultwarden (fait le 2026-10-26)
+Test de restauration réussi depuis Backrest, puis : ligne cron supprimée, `textfile/vaultwarden.prom` supprimé (l'alerte
+`SauvegardeVaultwardenInconnue` reste satisfaite par la métrique de Backrest, `tache="vaultwarden"`), clé `~/.ssh/vw-backup`,
+archives locales et `RSYNC_DEST` supprimés. Les archives déjà sur le Synology restent (plus renouvelées) ; le compte DSM
+`backup_vault` est à désactiver.
 
 ## Retrait de Portabase
 Portabase ne sauvegardait que le volume d'Arcane, repris par le plan `arcane`. Les dossiers `compose/portabase*` sont retirés

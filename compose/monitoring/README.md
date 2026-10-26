@@ -134,7 +134,7 @@ La notification arrive sur `homelab-alertes` dans les 30 s, puis « résolue » 
 | Modifier une règle ou `prometheus.yml` | Éditer puis `docker exec prometheus wget -qO- --post-data= http://localhost:9090/-/reload` |
 | Modifier un tableau de bord | L'éditer dans Grafana (non enregistrable), *Exporter › JSON*, remplacer le fichier dans `grafana/dashboards/`, committer |
 | Couper une alerte prévue (maintenance, arrêt volontaire) | `https://alertmanager.<domaine>` › *New Silence* |
-| Superviser une sauvegarde | À la fin du script, écrire `homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="<nom>"} <date +%s>` dans `data/textfile/<nom>.prom` (voir `scripts/vaultwarden-backup.sh`) |
+| Superviser une sauvegarde | À la fin du script, écrire `homelab_sauvegarde_derniere_reussite_timestamp_seconds{tache="<nom>"} <date +%s>` dans `data/textfile/<nom>.prom` (voir `metrique()` dans `compose/backrest/hooks/backrest-hook.sh`) |
 
 ## Alertes
 | Fichier | Alertes |

@@ -13,8 +13,8 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 - **Mini PC → [Backrest](../compose/backrest/)** (restic, depuis 2026-10) : un plan par stack chaque nuit entre 5h et 6h, dépôt chiffré
   sur le Synology en SFTP, conteneurs arrêtés le temps de leur sauvegarde (bases SQLite cohérentes), alerte si un plan n'a pas réussi
   depuis 26 h, notification ntfy en cas d'échec. Détail des plans, exclusions et restauration : [README de la stack](../compose/backrest/README.md).
-- **Vaultwarden** : en plus, script `scripts/vaultwarden-backup.sh` (cron 3h15, archive + rsync vers le Synology), conservé jusqu'au
-  premier test de restauration depuis Backrest, puis retiré.
+- **Vaultwarden** : l'ancien script `scripts/vaultwarden-backup.sh` (cron 3h15, archive + rsync vers le Synology) a été retiré
+  le 2026-10-26 après un test de restauration réussi depuis Backrest.
 - Procédure **MySQL PITR** documentée (binlogs + dump nocturne).
 
 ## Inventaire (octobre 2026)

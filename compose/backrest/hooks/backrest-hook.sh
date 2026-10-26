@@ -112,7 +112,7 @@ arreter() {
 
 # Métrique lue par node_exporter (collecteur textfile de la stack monitoring), écrite seulement après un snapshot RÉUSSI :
 # un échec ne met rien à jour et l'alerte SauvegardeEnRetard part au-delà de 26 h.
-# Même HELP que scripts/vaultwarden-backup.sh pour la métrique commune (node_exporter refuse des HELP différents).
+# Garder le même HELP que les autres écrivains de cette métrique (node_exporter refuse des HELP différents).
 metrique() {
   local lus="${1:-0}" ajoutes="${2:-0}" tmp
   [[ "$lus" =~ ^[0-9]+$ ]] || lus=0

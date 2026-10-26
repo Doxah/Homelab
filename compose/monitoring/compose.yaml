@@ -136,7 +136,7 @@ services:
       - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tracefs|cifs|smb3|nfs4?)$$
     volumes:
       - /:/host:ro,rslave
-      - ./data/textfile:/textfile:ro             # écrit par scripts/vaultwarden-backup.sh, deploiement-auto.sh et Backrest
+      - ./data/textfile:/textfile:ro             # écrit par deploiement-auto.sh, l'agent et Backrest
 
   # Métriques par conteneur (CPU, RAM, réseau, redémarrages). Exception documentée : root (lecture de /var/lib/docker),
   # mais sans aucune capacité, système de fichiers en lecture seule et API Docker en lecture seule via socket-proxy-mon.

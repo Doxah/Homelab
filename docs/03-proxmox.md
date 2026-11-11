@@ -5,8 +5,8 @@ Seul hôte Proxmox VE restant. Le Mini PC tourne en Debian + Docker direct.
 ## Conteneurs LXC
 | Contenu | Statut |
 |---|---|
-| **Vaultwarden** | Actif |
-| **npmplus** — reverse proxy principal (a remplacé Nginx Proxy Manager) | Actif |
+| Vaultwarden | Migré sur le Mini PC ([stack](../compose/vaultwarden/)) : CT à arrêter puis supprimer (état à confirmer) |
+| **npmplus** — ancien reverse proxy | En cours de retrait (remplacé par Traefik sur le Mini PC) |
 | DiscoPanel | Plus utilisé, à supprimer |
 | cloudflared | Plus utilisé (les tunnels tournent sur le Mini PC), à supprimer |
 | AdGuard | Rôle à confirmer |
@@ -17,7 +17,7 @@ Seul hôte Proxmox VE restant. Le Mini PC tourne en Debian + Docker direct.
 - Régression `proxmox-widget-toolkit` (HTML affiché en texte) corrigée.
 
 ## Sauvegardes
-- **Aucune sauvegarde des CT pour l'instant** (à mettre en place : Proxmox Backup Server ou vzdump vers un NAS). Vaultwarden a sa propre sauvegarde rsync.
+- **Aucune sauvegarde des CT pour l'instant** (à mettre en place : Proxmox Backup Server ou vzdump vers un NAS). Vaultwarden est désormais sauvegardé par Backrest sur le Mini PC.
 
 ## Rôle futur
 Le T130 deviendra l'hôte des VMs du cluster K3s, créées avec Terraform/OpenTofu (voir [09-feuille-de-route.md](09-feuille-de-route.md)).

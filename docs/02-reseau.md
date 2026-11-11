@@ -16,7 +16,7 @@ Internet ── Box FAI (NAT #1)
 - Double NAT (box FAI puis pfSense).
 - pfSense est le serveur DNS du réseau : les noms internes pointent vers le reverse proxy.
 - Les services exposés sur Internet passent par des **tunnels Cloudflare** sortants, pas par des redirections de ports.
-- Un reverse proxy interne (**npmplus**) gère les certificats Let's Encrypt.
+- **Traefik** (Mini PC) est le reverse proxy : certificat wildcard Let's Encrypt par DNS-01 Cloudflare, et entrée du tunnel (`traefik:8443`). npmplus (T130) est en cours de retrait.
 
 ## Constat
 Le découpage a grossi au fil des tests : plusieurs VLANs ne servent plus (anciens labs VM, IoT, Kubernetes) et le filtrage entre réseaux est quasi inexistant.

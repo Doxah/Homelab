@@ -6,9 +6,10 @@
 - **Apprendre le DevOps** en transformant ce homelab en infrastructure as code.
 
 ## Chantiers en cours
-- Supprimer les serveurs CS2 de test et les CT inutiles du T130.
+- Supprimer le volume CS2 restant et les CT inutiles du T130.
 - Mettre en place les sauvegardes (CT Proxmox, configs et volumes Docker).
-- Réinstaller Immich sur le Mini PC.
+- Immich (réinstallé en v3.3.5) : ajouter le plan Backrest et la sonde blackbox.
+- Terminer la migration npmplus → Traefik, puis arrêter npmplus et l'ancien CT Vaultwarden.
 - Jellyfin : mettre en service le second QNAP.
 - Stabiliser Arcane.
 

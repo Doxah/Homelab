@@ -28,7 +28,9 @@ dig <nom> @<dns> ; curl -vk https://<url>
 | Stockage NFS | `mount \| grep nfs`, `df -h <point>`, `showmount -e <nas>` |
 | Fond noir pages détail | Côté client : Paramètres → Affichage → « Arrière-plans » |
 
-## Reverse proxy (Nginx Proxy Manager / npmplus)
+## Reverse proxy (Traefik ; anciennement NPM / npmplus)
+Traefik : dashboard (LAN), `docker logs traefik`, et le [README de la stack](../compose/traefik/README.md). Depuis le tunnel, un 502 vient souvent d'un *Origin Server Name* manquant (`sniStrict`).
+
 | Problème | Outils / commandes |
 |---|---|
 | Service « down » mais backend OK | `curl -I http://<backend>:<port>` puis `curl -vk https://<fqdn>` : isole la couche proxy/TLS |
@@ -62,8 +64,9 @@ nmap -Pn <ip-publique>        # vérifier depuis l'extérieur ce qui est exposé
 Piège : le nom interne `wan` peut ne pas correspondre au vrai WAN si les interfaces ont été réassignées. Vérifier dans Interfaces → Assignments avant de lire les URLs `firewall_rules.php?if=...`.
 
 ## Docker (Mini PC)
+Toujours passer par `scripts/compose-up.sh` (secrets SOPS), voir [13-compose-up.md](13-compose-up.md) :
 ```bash
-docker compose -f <chemin>/compose.yaml up -d / logs -f / ps
+scripts/compose-up.sh <stack> ; scripts/compose-up.sh <stack> -- logs -f ; scripts/compose-up.sh <stack> ps
 docker system df ; docker system prune
 ```
 

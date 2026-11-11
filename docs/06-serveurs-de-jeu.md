@@ -9,5 +9,4 @@
 - Scintillement côté client résolu par la **VSync**.
 
 ## CS2
-- 2 serveurs CS2 de test en Docker sur le Mini PC (RCON, cartes Workshop).
-- **À supprimer** : ils prennent trop de place. Le projet de serveur d'entraînement façon Refrag est en pause.
+- 2 serveurs CS2 de test en Docker sur le Mini PC (RCON, cartes Workshop) : conteneurs supprimés, reste le volume `cs_cs2-data` à supprimer. Le projet de serveur d'entraînement façon Refrag est en pause.

@@ -22,9 +22,11 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 |---|---|---|---|
 | Clé age du PC (SOPS) | PC | Critique : sans elle, aucun secret du dépôt n'est lisible | Copie hors homelab (feuille de route git.8) |
 | Mot de passe du dépôt restic | SOPS (`compose/backrest`) | Critique | + Vaultwarden + papier |
-| Vaultwarden | `compose/vaultwarden/data` | Critique | Backrest `vaultwarden` (30 j / 8 sem / 12 mois) + script rsync |
+| Vaultwarden | `compose/vaultwarden/data` | Critique | Backrest `vaultwarden` (30 j / 8 sem / 12 mois) |
 | Dossier `private/` du dépôt | PC | Critique (hors Git) | À couvrir avec la sauvegarde du PC |
 | Config pfSense (`config.xml`) | pfSense | Critique | **À faire** |
+| Immich : base (dumps quotidiens) | `compose/immich/data/db-dumps` | Critique | **À faire** : plan Backrest `immich` ([procédure](../compose/immich/README.md#sauvegardes)) |
+| Immich : photos et vidéos originales | `UPLOAD_LOCATION` | Critique (souvenirs, non re-téléchargeables) | **Pas encore** : avec le NAS central |
 | Hôte Mini PC (`/etc`, crontabs, `~/.ssh`, clé age du Mini PC) | Mini PC | Important | Backrest `hote` |
 | Config Jellyfin + *arr, Seerr, Jackett, Transmission | `compose/jellyfin/config` | Important | Backrest `jellyfin` (sans caches, métadonnées, logs) |
 | Serveurs Minecraft + base DiscoPanel | données DiscoPanel | Important | Backrest `discopanel` |
@@ -36,6 +38,7 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 | Prometheus, Loki, ntfy, ConvertX | Mini PC | Aucune / déclaratif | Non |
 
 ## Lacunes
+- **Immich en service sans aucune sauvegarde** (ni base, ni originaux) : priorité 1.
 - Aucune copie hors site : tout est à la maison (incendie, vol, ransomware). Prévu : NAS externalisé, réplication non effaçable.
 - Synology presque seul support des sauvegardes, ~500 Go libres : choisir le NAS central (feuille de route, backup.2).
 - Config pfSense et PC non sauvegardés.

@@ -22,7 +22,7 @@ backrest ──► hook « avant » ──► socket-proxy-backrest ──► do
 | Outil | Backrest 1.14.1 (restic 0.19.1) | Interface pour voir l'état des sauvegardes et restaurer ; restic dessous (dédoublonnage, chiffrement, dépôt lisible sans Backrest) |
 | Destination | Synology DS216J en SFTP, compte de service dédié | Déjà la cible de Vaultwarden. ~500 Go libres : suffisant pour ces données, à revoir avec le NAS central (feuille de route, backup.2) |
 | Secrets | URI et mot de passe du dépôt dans SOPS, passés en `${VAR}` dans `config.json` | Rien de sensible en clair dans la config de Backrest |
-| Cohérence des bases | Arrêt des conteneurs du plan pendant sa sauvegarde, la nuit | SQLite (Vaultwarden, *arr, Jellyfin, SoulSync, Arcane, DiscoPanel, Grafana) : une copie à chaud peut être inutilisable |
+| Cohérence des bases | Arrêt des conteneurs du plan pendant sa sauvegarde, la nuit | SQLite (Vaultwarden, *arr, Jellyfin, Arcane, DiscoPanel, Grafana) : une copie à chaud peut être inutilisable |
 | Accès Docker | `socket-proxy-backrest` : `POST /containers/<nom>/(stop\|start)` pour une liste fermée de noms | Ni lecture, ni création, ni exec : Backrest ne peut rien faire d'autre qu'arrêter/relancer ces conteneurs |
 | Moindre privilège | root + `DAC_OVERRIDE`, `CHOWN`, `FOWNER` ; sources en `:ro` | Lire les données de tous les UID et restaurer propriétaires et dates. Exception détaillée en tête de `compose.yaml` |
 | Supervision | Fichier `.prom` par plan + notification ntfy | Même mécanisme que le script Vaultwarden : l'alerte existante `SauvegardeEnRetard` couvre tous les plans |
@@ -37,7 +37,6 @@ les tâches **une par une**, les horaires donnent seulement l'ordre.
 | `hote` | 05:05 | `/etc` (ufw, fstab, ssh, cron…), crontabs, `~/.ssh`, `~/.config/sops` (clé age du Mini PC) | aucun | 7 j, 4 sem, 6 mois |
 | `infra` | 05:10 | `traefik/data` (`acme.json`), `monitoring/data/grafana`, config de Backrest | grafana | 7 j, 4 sem, 6 mois |
 | `arcane` | 05:15 | volume `arcane_arcane-data` | arcane | 7 j, 4 sem, 6 mois |
-| `soulsync` | 05:20 | `soulsync/config`, `data`, `slskd` (sans logs ni téléchargements) | soulsync, slskd | 7 j, 4 sem, 6 mois |
 | `discopanel` | 05:30 | données DiscoPanel (base + serveurs Minecraft, sans `logs`/`crash-reports`) | discopanel → arrête lui-même les serveurs Minecraft | 7 j, 4 sem, 6 mois |
 | `jellyfin` | 05:45 | `jellyfin/config` : Jellyfin, Radarr, Sonarr, Jackett, Seerr, Transmission | seerr, radarr, sonarr, jackett, transmission, jellyfin (pas gluetun) | 7 j, 4 sem, 6 mois |
 
@@ -126,7 +125,7 @@ Puis remplir les secrets : `sops compose/backrest/secrets.sops.env` (depuis le P
 ### 3. Estimer la place
 ```bash
 cd ~/Homelab/compose
-du -sh vaultwarden/data traefik/data monitoring/data/grafana soulsync/{config,data,slskd} 2>/dev/null
+du -sh vaultwarden/data traefik/data monitoring/data/grafana 2>/dev/null
 du -sh --exclude=metadata --exclude=cache --exclude=MediaCover --exclude=log --exclude=logs jellyfin/config 2>/dev/null
 sops exec-env discopanel/secrets.sops.env 'du -sh "$DISCOPANEL_HOST_DATA_PATH"'
 docker system df -v | grep arcane_arcane-data

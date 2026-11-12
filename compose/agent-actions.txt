@@ -15,7 +15,6 @@
 convertx    : restart up
 discopanel  : restart
 immich      : restart up
-soulsync    : restart up
 backrest    : restart
 monitoring  : restart up
 jellyfin    : restart !gluetun          # recréer/relancer gluetun change le port forwardé et coupe les lectures

@@ -9,4 +9,3 @@
 convertx
 discopanel
 monitoring
-soulsync

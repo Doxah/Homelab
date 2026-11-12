@@ -97,9 +97,6 @@ services:
       - ../traefik/data:/sources/traefik:ro                                  # plan infra (+ /config de Backrest)
       - ../monitoring/data/grafana:/sources/grafana:ro
       - arcane-data:/sources/arcane:ro                                       # plan arcane
-      - ../soulsync/config:/sources/soulsync/config:ro                       # plan soulsync
-      - ../soulsync/data:/sources/soulsync/data:ro
-      - ../soulsync/slskd:/sources/soulsync/slskd:ro
       - ${DISCOPANEL_HOST_DATA_PATH:?secret manquant}:/sources/discopanel:ro  # plan discopanel
       - ../jellyfin/config:/sources/jellyfin:ro                              # plan jellyfin
 
@@ -141,7 +138,7 @@ services:
       - -listenip=0.0.0.0
       - -allowfrom=backrest                        # seul le conteneur backrest
       # ^ et $ ajoutés automatiquement par socket-proxy ; méthodes non listées = refusées
-      - -allowPOST=/(v1\.[0-9]{1,2}/)?containers/(vaultwarden|seerr|radarr|sonarr|jackett|transmission|jellyfin|soulsync|slskd|arcane|discopanel|grafana)/(stop|start)
+      - -allowPOST=/(v1\.[0-9]{1,2}/)?containers/(vaultwarden|seerr|radarr|sonarr|jackett|transmission|jellyfin|arcane|discopanel|grafana)/(stop|start)
       - -allowhealthcheck
       - -watchdoginterval=3600                     # s'arrête si le socket casse (mise à jour de Docker) : restart le relance
       - -stoponwatchdog

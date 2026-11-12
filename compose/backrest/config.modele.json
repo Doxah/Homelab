@@ -158,29 +158,6 @@
       ]
     },
     {
-      "id": "soulsync",
-      "repo": "minipc",
-      "paths": [
-        "/sources/soulsync"
-      ],
-      "schedule": {
-        "cron": "20 5 * * *",
-        "clock": "CLOCK_LOCAL"
-      },
-      "retention": {
-        "policyTimeBucketed": {
-          "daily": 7,
-          "weekly": 4,
-          "monthly": 6
-        }
-      },
-      "excludes": [
-        "/sources/soulsync/slskd/logs",
-        "/sources/soulsync/slskd/incomplete",
-        "/sources/soulsync/slskd/downloads"
-      ]
-    },
-    {
       "id": "discopanel",
       "repo": "minipc",
       "paths": [

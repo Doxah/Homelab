@@ -18,7 +18,6 @@ set -uo pipefail
 declare -A CONTENEURS=(
   [vaultwarden]="vaultwarden"
   [jellyfin]="seerr radarr sonarr jackett transmission jellyfin"   # gluetun reste en marche (port forwardé)
-  [soulsync]="soulsync slskd"
   [arcane]="arcane"
   [discopanel]="discopanel"      # en s'arrêtant, DiscoPanel arrête proprement les serveurs Minecraft (monde enregistré)
   [infra]="grafana"

@@ -1,0 +1,60 @@
+# Home Assistant : domotique (https://www.home-assistant.io/)
+# Secrets : secrets.sops.env (HA_TRUSTED_PROXY_CIDR) + compose/commun.sops.env (DOMAIN). Lancement : scripts/compose-up.sh homeassistant
+# Données : ./data (base, .storage, sauvegardes HA), propriétaire administrateur. Jamais dans Git.
+# Configuration : ./configuration.yaml (versionné, monté en lecture seule). Modifier le fichier dans Git, pas dans l'interface.
+# Publié par Traefik (ha.<DOMAIN>) via le réseau proxy, réservé aux postes d'admin et au VPN (lan-admin). Aucun port publié sur l'hôte.
+# Limite : réseau « bridge » = pas de découverte automatique (mDNS, SSDP). Voir le README pour le mode host.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.11.1   # version figée (jamais « stable »)
+    container_name: homeassistant
+    restart: unless-stopped
+
+    # Pas de `user:` : l'image officielle démarre sous s6-overlay en root et ne gère pas un autre UID.
+    # On compense par le reste du cadre strict : aucune capacité sauf une, pas d'élévation, système de fichiers en lecture seule.
+    cap_drop: [ALL]
+    cap_add:
+      - DAC_OVERRIDE                           # root du conteneur doit écrire dans ./data (propriété de administrateur)
+      # Autres candidates si les logs disent « Operation not permitted » (une seule à la fois) :
+      # CHOWN, FOWNER, SETUID, SETGID (init s6) ; NET_RAW (ping, découverte DHCP)
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run:exec                              # s6-overlay y écrit son état et exécute ses scripts
+
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 1024                           # Home Assistant lance beaucoup de threads (intégrations)
+
+    networks: [proxy]                          # seul réseau : aucun autre conteneur à joindre pour l'instant
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.homeassistant.rule: Host(`ha.${DOMAIN:?secret manquant}`)
+      traefik.http.routers.homeassistant.middlewares: lan-admin@docker   # retirer pour ouvrir à tout le LAN
+      traefik.http.services.homeassistant.loadbalancer.server.port: "8123"
+
+    environment:
+      TZ: Europe/Paris
+      S6_READ_ONLY_ROOT: "1"                   # s6-overlay accepte un rootfs en lecture seule
+      HA_TRUSTED_PROXY_CIDR: ${HA_TRUSTED_PROXY_CIDR:?secret manquant, lancer via scripts/compose-up.sh}   # lu par configuration.yaml (!env_var)
+
+    volumes:
+      - ./data:/config
+      - ./configuration.yaml:/config/configuration.yaml:ro
+
+    # Clé USB Zigbee / Z-Wave : décommenter en adaptant (chemin stable par-id, jamais /dev/ttyUSB0)
+    # devices:
+    #   - /dev/serial/by-id/usb-XXXX:/dev/ttyUSB0
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8123/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s                       # premier démarrage lent (installation des intégrations)
+
+networks:
+  proxy:
+    external: true                             # créé par la stack traefik

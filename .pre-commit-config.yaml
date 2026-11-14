@@ -6,7 +6,7 @@ repos:
       - id: detect-private-key
       - id: check-added-large-files
       - id: check-yaml
-        args: [--allow-multiple-documents]
+        args: [--allow-multiple-documents, --unsafe]   # --unsafe : vérifie la syntaxe sans résoudre les tags personnalisés (!include, !env_var de Home Assistant)
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending

@@ -1,0 +1,16 @@
+# Configuration Home Assistant : versionnée et montée en lecture seule dans le conteneur (voir compose.yaml).
+# Ni nom, ni position, ni fuseau, ni domaine, ni IP ici : le nom, la position et les unités se règlent dans
+# l'interface (stockés dans data/.storage) ; le sous-réseau du proxy vient des secrets SOPS (!env_var).
+default_config:
+
+http:
+  use_x_forwarded_for: true                    # derrière Traefik : sans cela, Home Assistant répond 400
+  trusted_proxies:
+    - !env_var HA_TRUSTED_PROXY_CIDR           # sous-réseau Docker du réseau « proxy »
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+
+# Fichiers écrits par l'interface (éditeur d'automatisations, scripts, scènes) : créés vides dans data/ (voir README)
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

@@ -1,0 +1,200 @@
+{
+  "databases": [
+    {
+      "name": "vaultwarden-base",
+      "type": "sqlite",
+      "path": "/sources/vaultwarden/db.sqlite3",
+      "generated_id": "66993046-0b46-4734-9086-3d4fc6e4d706"
+    },
+    {
+      "name": "vaultwarden-fichiers",
+      "type": "files",
+      "path": "/sources/vaultwarden",
+      "generated_id": "be8dd315-684c-467a-90f6-55b1bab8596b",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/db.sqlite3*",
+          "/icon_cache",
+          "/tmp"
+        ],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "hote",
+      "type": "files",
+      "path": "/sources/hote",
+      "generated_id": "71954555-3be4-437c-b3ed-c65c9d180d14",
+      "options": {
+        "method": "snapshot",
+        "exclude": [],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "traefik",
+      "type": "files",
+      "path": "/sources/traefik",
+      "generated_id": "e09552f7-3a99-4fd2-b21e-67055fa683a0",
+      "options": {
+        "method": "snapshot",
+        "exclude": [],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "grafana-base",
+      "type": "sqlite",
+      "path": "/sources/grafana/grafana.db",
+      "generated_id": "8e2e5177-a237-47fc-9ba8-a86eaee68444"
+    },
+    {
+      "name": "grafana-fichiers",
+      "type": "files",
+      "path": "/sources/grafana",
+      "generated_id": "207ff79d-be56-47ae-887c-41cd1989a518",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/grafana.db*",
+          "/png",
+          "/csv",
+          "/pdf"
+        ],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "arcane-base",
+      "type": "sqlite",
+      "path": "/sources/arcane/arcane.db",
+      "generated_id": "8250b920-552e-4f83-a439-832aaa6727ae"
+    },
+    {
+      "name": "arcane-fichiers",
+      "type": "files",
+      "path": "/sources/arcane",
+      "generated_id": "5abff2f3-45e3-41f0-a128-0af24b1eaa3d",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/arcane.db*",
+          "/logs"
+        ],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "discopanel-base",
+      "type": "sqlite",
+      "path": "/sources/discopanel/data/discopanel.db",
+      "generated_id": "6a977d3b-4c54-407d-93d2-64861f4c4149"
+    },
+    {
+      "name": "discopanel-fichiers",
+      "type": "files",
+      "path": "/sources/discopanel",
+      "generated_id": "91ce0ed5-8be4-43be-a9c3-94c1c7ff1ddb",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/data/discopanel.db*",
+          "logs",
+          "crash-reports"
+        ],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "jellyfin-base",
+      "type": "sqlite",
+      "path": "/sources/jellyfin/jellyfin/data/data/jellyfin.db",
+      "generated_id": "16409d8a-4be5-42e2-8adf-5d75fc071953"
+    },
+    {
+      "name": "radarr-base",
+      "type": "sqlite",
+      "path": "/sources/jellyfin/radarr/radarr.db",
+      "generated_id": "704bd5b5-9e63-4b47-a3f7-7c0b6d0d08b3"
+    },
+    {
+      "name": "sonarr-base",
+      "type": "sqlite",
+      "path": "/sources/jellyfin/sonarr/sonarr.db",
+      "generated_id": "6e4b6fba-9008-41ce-b529-3eda5aa65f37"
+    },
+    {
+      "name": "seerr-base",
+      "type": "sqlite",
+      "path": "/sources/jellyfin/jellyseerr/db/db.sqlite3",
+      "generated_id": "68cda1b4-d903-4cd0-9cc3-8ebc15e1dd31"
+    },
+    {
+      "name": "jellyfin-config",
+      "type": "files",
+      "path": "/sources/jellyfin",
+      "generated_id": "a945c6cf-7360-47c2-83b9-b4c5da560a8c",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/gluetun",
+          "/jellyfin/cache",
+          "/jellyfin/log",
+          "/jellyfin/data/metadata",
+          "/jellyfin/data/transcodes",
+          "/jellyfin/data/data/jellyfin.db*",
+          "/radarr/MediaCover",
+          "/radarr/logs",
+          "/radarr/logs.db*",
+          "/radarr/Backups",
+          "/radarr/radarr.db*",
+          "/sonarr/MediaCover",
+          "/sonarr/logs",
+          "/sonarr/logs.db*",
+          "/sonarr/Backups",
+          "/sonarr/sonarr.db*",
+          "/jellyseerr/logs",
+          "/jellyseerr/cache",
+          "/jellyseerr/db/db.sqlite3*",
+          "/jellyseerr.bak-*",
+          "/jackett/Jackett/log.txt*"
+        ],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "immich-dumps",
+      "type": "files",
+      "path": "/sources/immich",
+      "generated_id": "2334e926-555a-4efb-9910-f0784d533312",
+      "options": {
+        "method": "snapshot",
+        "exclude": [],
+        "one_file_system": true
+      }
+    },
+    {
+      "name": "homeassistant-base",
+      "type": "sqlite",
+      "path": "/sources/homeassistant/home-assistant_v2.db",
+      "generated_id": "bf7a2c5b-d8d7-4de7-8e59-fb63340bc173"
+    },
+    {
+      "name": "homeassistant-fichiers",
+      "type": "files",
+      "path": "/sources/homeassistant",
+      "generated_id": "a64f0590-ad20-4647-8cf9-bf4f6b31943e",
+      "options": {
+        "method": "snapshot",
+        "exclude": [
+          "/home-assistant_v2.db*",
+          "/home-assistant.log*",
+          "/tts",
+          "/.cache"
+        ],
+        "one_file_system": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+# Agent Portabase du Mini PC : sauvegarde les sources de databases.json et les envoie à la destination
+# choisie dans le dashboard (Synology en SFTP). Remplace Backrest (voir compose/portabase/README.md).
+# Secrets : secrets.sops.env (EDGE_KEY). Lancement : scripts/compose-up.sh portabase-agent
+#
+# Joint le dashboard par l'URL contenue dans EDGE_KEY (https://portabase.<DOMAIN>, via Traefik) :
+# le router portabase-agent (stack portabase) laisse passer /api/agent/ sans lan-admin, routes authentifiées par la clé.
+#
+# PAS DE SOCKET DOCKER : l'agent n'en a besoin que pour le type « docker-volume », non utilisé ici
+# (le volume d'Arcane est monté en lecture seule comme les autres sources). Les bases SQLite sont copiées à chaud
+# par `sqlite3 .backup` (copie cohérente sans arrêter le conteneur) : plus besoin d'arrêter les services la nuit.
+#
+# EXCEPTION DOCUMENTÉE AU MOINDRE PRIVILÈGE : root + DAC_READ_SEARCH (lire les données de tous les UID),
+# DAC_OVERRIDE / CHOWN / FOWNER (restaurer propriétaires et droits dans ./restauration). Sources toutes en :ro.
+name: portabase-agent
+
+services:
+  agent:
+    image: portabase/agent:1.26.3              # version figée, mises à jour proposées par Renovate
+    container_name: portabase-agent
+    restart: unless-stopped
+
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH, DAC_OVERRIDE, CHOWN, FOWNER]
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 1g                              # restic + rclone sur les gros dossiers (config Jellyfin)
+    cpus: 1.0
+    pids_limit: 300
+
+    environment:
+      TZ: Europe/Paris
+      EDGE_KEY: ${EDGE_KEY:?secret manquant}
+      LOG: info
+      POLLING: "5"                             # secondes entre deux interrogations du dashboard
+      MAX_CONCURRENT_BACKUPS: "1"              # une sauvegarde à la fois : le Synology DS216J est lent
+
+    volumes:
+      - ./data:/config                         # cache restic, fichiers temporaires (DATA_PATH par défaut)
+      - ./databases.json:/config/config.json:ro # liste des sources, versionnée (sans mot de passe)
+      - ./restauration:/restauration           # cible des restaurations, jamais une source en direct
+
+      # --- Sources, TOUTES en lecture seule (mêmes que l'ancien Backrest) ---
+      - ../vaultwarden/data:/sources/vaultwarden:ro
+      - /etc:/sources/hote/etc:ro
+      - /var/spool/cron/crontabs:/sources/hote/crontabs:ro
+      - ${HOME:?HOME non défini}/.ssh:/sources/hote/ssh-utilisateur:ro
+      - ${HOME:?HOME non défini}/.config/sops:/sources/hote/sops-utilisateur:ro   # clé age du Mini PC
+      - ../traefik/data:/sources/traefik:ro
+      - ../monitoring/data/grafana:/sources/grafana:ro
+      - arcane-data:/sources/arcane:ro
+      - ../discopanel/data:/sources/discopanel/data:ro
+      - ../discopanel/backups:/sources/discopanel/backups:ro   # sauvegardes propres faites par DiscoPanel
+      - ../jellyfin/config:/sources/jellyfin:ro
+      - ../immich/data/db-dumps:/sources/immich:ro
+      - ../homeassistant/data:/sources/homeassistant:ro
+
+volumes:
+  arcane-data:
+    external: true
+    name: arcane_arcane-data

@@ -64,3 +64,4 @@ compose/*/portabase-data/
 compose/*/postgres-data/
 compose/*/backups/
 compose/*/tmp/
+compose/*/restauration/

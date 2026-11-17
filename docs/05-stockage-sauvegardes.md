@@ -10,7 +10,10 @@
 QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 
 ## Sauvegardes en place
-- **Mini PC → [Backrest](../compose/backrest/)** (restic, depuis 2026-10) : un plan par stack chaque nuit entre 5h et 6h, dépôt chiffré
+- **Mini PC → [Portabase](../compose/portabase/)** (en mise en service, novembre 2026) : remplace Backrest. Bases SQLite copiées à chaud
+  (`sqlite3 .backup`, plus aucun arrêt de service), dossiers en restic, vers le Synology en SFTP, notification ntfy en cas d'échec.
+  Clé critique : `EDGE_KEY` de l'agent (les mots de passe des dépôts en sont dérivés). Planning, rétention, limites : [README](../compose/portabase/README.md).
+- **Mini PC → [Backrest](../compose/backrest/)** (restic, depuis 2026-10, **conservé jusqu'au test de restauration Portabase**) : un plan par stack chaque nuit entre 5h et 6h, dépôt chiffré
   sur le Synology en SFTP, conteneurs arrêtés le temps de leur sauvegarde (bases SQLite cohérentes), alerte si un plan n'a pas réussi
   depuis 26 h, notification ntfy en cas d'échec. Détail des plans, exclusions et restauration : [README de la stack](../compose/backrest/README.md).
 - **Vaultwarden** : l'ancien script `scripts/vaultwarden-backup.sh` (cron 3h15, archive + rsync vers le Synology) a été retiré
@@ -21,11 +24,12 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 | Donnée | Où | Criticité | Couverture |
 |---|---|---|---|
 | Clé age du PC (SOPS) | PC | Critique : sans elle, aucun secret du dépôt n'est lisible | Copie hors homelab (feuille de route git.8) |
-| Mot de passe du dépôt restic | SOPS (`compose/backrest`) | Critique | + Vaultwarden + papier |
+| `EDGE_KEY` de l'agent Portabase | SOPS (`compose/portabase-agent`) | Critique : sans elle, aucune sauvegarde Portabase n'est lisible | **À copier** dans Vaultwarden + papier |
+| Mot de passe du dépôt restic (Backrest) | SOPS (`compose/backrest`) | Critique tant que l'ancien dépôt est gardé | + Vaultwarden + papier |
 | Vaultwarden | `compose/vaultwarden/data` | Critique | Backrest `vaultwarden` (30 j / 8 sem / 12 mois) |
 | Dossier `private/` du dépôt | PC | Critique (hors Git) | À couvrir avec la sauvegarde du PC |
 | Config pfSense (`config.xml`) | pfSense | Critique | **À faire** |
-| Immich : base (dumps quotidiens) | `compose/immich/data/db-dumps` | Critique | **À faire** : plan Backrest `immich` ([procédure](../compose/immich/README.md#sauvegardes)) |
+| Immich : base (dumps quotidiens) | `compose/immich/data/db-dumps` | Critique | Portabase `immich-dumps` |
 | Immich : photos et vidéos originales | `UPLOAD_LOCATION` | Critique (souvenirs, non re-téléchargeables) | **Pas encore** : avec le NAS central |
 | Hôte Mini PC (`/etc`, crontabs, `~/.ssh`, clé age du Mini PC) | Mini PC | Important | Backrest `hote` |
 | Config Jellyfin + *arr, Seerr, Jackett, Transmission | `compose/jellyfin/config` | Important | Backrest `jellyfin` (sans caches, métadonnées, logs) |

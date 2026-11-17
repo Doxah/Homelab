@@ -12,7 +12,8 @@
 | **Immich** | Photos et vidéos (sauvegarde des téléphones), v3.3.5 en service ([stack](../compose/immich/)). **Pas encore sauvegardé ni supervisé** (voir [05](05-stockage-sauvegardes.md)) |
 | **Serveur web** | Site vitrine personnel |
 | **Arcane** | Interface de gestion Docker, en cours d'adoption ; encore des problèmes, donc beaucoup de CLI ([stack](../compose/arcane/)) |
-| **Backrest** | Sauvegardes restic des stacks, chaque nuit vers le Synology, interface web ([stack](../compose/backrest/)) |
+| **Portabase** | Sauvegardes des stacks (SQLite à chaud + fichiers en restic), chaque nuit vers le Synology : dashboard + agent ([stack](../compose/portabase/), [agent](../compose/portabase-agent/)). **En mise en service**, remplace Backrest |
+| **Backrest** | Ancien système de sauvegarde (restic), conservé jusqu'au test de restauration depuis Portabase ([stack](../compose/backrest/)) |
 | **ConvertX** | Conversion de fichiers ([stack](../compose/convertx/)) |
 | **DiscoPanel** | Panel des serveurs Minecraft ([stack](../compose/discopanel/)) |
 | **Supervision** | Prometheus, Grafana, Loki, Alertmanager ([stack](../compose/monitoring/)) |
@@ -29,7 +30,7 @@
 
 ## Retirés / abandonnés
 Nginx Proxy Manager puis npmplus (remplacés par Traefik), Pi-hole (test), Dockge (remplacé par Arcane / CLI), Jellyfin en LXC,
-Portabase (remplacé par Backrest), Watchtower (remplacé par Renovate), GLPI, 2× serveur CS2 de test (conteneurs supprimés, volume `cs_cs2-data` restant).
+Watchtower (remplacé par Renovate), GLPI, 2× serveur CS2 de test (conteneurs supprimés, volume `cs_cs2-data` restant).
 
 ## Supervision
 Stack [`compose/monitoring`](../compose/monitoring/) sur le Mini PC (octobre 2026), derrière Traefik :

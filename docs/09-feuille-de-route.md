@@ -8,7 +8,8 @@
 ## Chantiers en cours
 - Supprimer le volume CS2 restant et les CT inutiles du T130.
 - Mettre en place les sauvegardes (CT Proxmox, configs et volumes Docker).
-- Immich (réinstallé en v3.3.5) : ajouter le plan Backrest et la sonde blackbox.
+- Sauvegardes : mettre Portabase en service, tester une restauration, puis retirer Backrest.
+- Immich (réinstallé en v3.3.5) : ajouter la sonde blackbox.
 - Terminer la migration npmplus → Traefik, puis arrêter npmplus et l'ancien CT Vaultwarden.
 - Jellyfin : mettre en service le second QNAP.
 - Stabiliser Arcane.

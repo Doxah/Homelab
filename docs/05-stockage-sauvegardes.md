@@ -30,7 +30,6 @@ QNAP TS-231P2 : non utilisé (candidat pour le NAS externalisé).
 | Hôte Mini PC (`/etc`, crontabs, `~/.ssh`, clé age du Mini PC) | Mini PC | Important | Backrest `hote` |
 | Config Jellyfin + *arr, Seerr, Jackett, Transmission | `compose/jellyfin/config` | Important | Backrest `jellyfin` (sans caches, métadonnées, logs) |
 | Serveurs Minecraft + base DiscoPanel | données DiscoPanel | Important | Backrest `discopanel` |
-| SoulSync + slskd | `compose/soulsync` | Important | Backrest `soulsync` |
 | Arcane | volume `arcane_arcane-data` | Moyen | Backrest `arcane` (remplace Portabase) |
 | `acme.json` Traefik, Grafana | `compose/traefik/data`, `compose/monitoring/data/grafana` | Faible | Backrest `infra` |
 | Médias famille, musique, données perso des NAS | NAS | À qualifier | **Pas encore** : avec le NAS central |

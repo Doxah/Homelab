@@ -19,7 +19,6 @@
 | **ntfy** | Notifications push des alertes et des scripts ([stack](../compose/ntfy/)) |
 | **webhook** | Reçoit le push GitHub pour le déploiement automatique ([stack](../compose/webhook/), [doc](14-deploiement-auto.md)) |
 | **Agent de dépannage** | Claude Code (abonnement Pro) : diagnostique les pannes signalées par Alertmanager, relance ce qui est autorisé, propose les correctifs en PR, rapport quotidien ([stack](../compose/agent/), [doc](15-agent-depannage.md)) |
-| **SoulSync + slskd** | Stack musique « Spotify selfhost », **pas encore lancée** (aucun conteneur) ([stack](../compose/soulsync/)) |
 
 ## Dell T130 (Proxmox, LXC)
 | Service | Notes |
@@ -29,7 +28,7 @@
 
 ## Retirés / abandonnés
 Nginx Proxy Manager puis npmplus (remplacés par Traefik), Pi-hole (test), Dockge (remplacé par Arcane / CLI), Jellyfin en LXC,
-Portabase (remplacé par Backrest), Watchtower (remplacé par Renovate), GLPI, 2× serveur CS2 de test (conteneurs supprimés, volume `cs_cs2-data` restant).
+Portabase (remplacé par Backrest), Watchtower (remplacé par Renovate), GLPI, SoulSync + slskd (retiré le 2026-11-12), 2× serveur CS2 de test (conteneurs supprimés, volume `cs_cs2-data` restant).
 
 ## Supervision
 Stack [`compose/monitoring`](../compose/monitoring/) sur le Mini PC (octobre 2026), derrière Traefik :

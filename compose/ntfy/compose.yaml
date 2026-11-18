@@ -12,7 +12,7 @@ name: ntfy
 
 services:
   ntfy:
-    image: binwiederhier/ntfy:v2.32.0          # version figée
+    image: binwiederhier/ntfy:v2.38.0          # version figée
     container_name: ntfy
     restart: unless-stopped
     command: serve

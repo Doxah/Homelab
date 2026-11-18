@@ -178,7 +178,7 @@ services:
   # Tourne en UID 1000 : le dossier config doit être chown 1000:1000.   #
   # ------------------------------------------------------------------ #
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.5.0
+    image: ghcr.io/seerr-team/seerr:v3.5.2
     init: true
     container_name: seerr
     # Tourne déjà en non-root (node, UID 1000) : aucune capacité nécessaire
@@ -205,7 +205,7 @@ services:
   # Serveur média                                                      #
   # ------------------------------------------------------------------ #
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:12.2ubu2604-ls54
+    image: lscr.io/linuxserver/jellyfin:12.4ubu2604-ls60
     container_name: jellyfin
     cap_drop: [ALL]
     cap_add: *lsio-caps
